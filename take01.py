@@ -8,7 +8,7 @@ load data
 """
 train = pd.read_csv('./data/train.csv')
 
-
+test = pd.read_csv('./data/test.csv')
 """
 fix salePrice skewness
 """
@@ -96,3 +96,8 @@ y_pred = model.predict(all_features_data)
 
 print("Root Mean Squared Error")
 print(sqrt(mean_squared_error(y_train_values, y_pred)))
+
+
+#model.predict(test.values)
+#result = np.expm1(model.predict(test.values))
+
