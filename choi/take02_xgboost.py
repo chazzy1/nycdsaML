@@ -1,10 +1,10 @@
-import importlib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from math import sqrt
 from sklearn.linear_model import Lasso
 from scipy.stats import skew
+import xgboost as xgb
 
 """
 load data
@@ -62,6 +62,8 @@ for col in cols_encoding_needed:
     all_features_test[col] = lbl.transform(list(all_features_test[col].values))
 
 
+
+
 """
 fix numeric features skewness by applying boxcox
 """
@@ -88,72 +90,61 @@ for feat in skewed_features_test:
 
 """"" One-hot encode """
 
-import category_encoders as ce
-
 all_data = pd.concat((all_features_data,all_features_test))
 
-print(all_features_data.info())
 for column in all_data.select_dtypes(include=[np.object]).columns:
-    #all_features_data[column] = all_features_data[column].astype('category', categories = all_data[column].unique())
-    #all_features_test[column] = all_features_test[column].astype('category', categories = all_data[column].unique())
-
-    all_features_data[column] = all_features_data[column].astype('category', CategoricalDtype = all_data[column].unique())
-    all_features_test[column] = all_features_test[column].astype('category', CategoricalDtype = all_data[column].unique())
-    #all_features_data[column] = all_features_data[column].astype(pd.api.types.CategoricalDtype(categories = all_data[column].unique()))
-    #all_features_test[column] = all_features_test[column].astype(pd.api.types.CategoricalDtype(categories = all_data[column].unique()))
-
-
-#print(all_features_data.info())
-
+    all_features_data[column] = all_features_data[column].astype('category', categories = all_data[column].unique())
+    all_features_test[column] = all_features_test[column].astype('category', categories = all_data[column].unique())
 
 all_features_data = pd.get_dummies(all_features_data)
 all_features_test = pd.get_dummies(all_features_test)
 
-# use right join
-all_features_data, all_features_test = all_features_data.align\
-    (all_features_test, join='right', axis=1)
-
-print(all_features_data.info())
-print(all_features_test.info())
 
 """
 lasso fit
 """
-
 lasso = Lasso()
-lasso.set_params(alpha=0.00001, normalize=True)
 model = lasso.fit(all_features_data.values, y_train_values)
 
 y_pred = model.predict(all_features_data)
 
-print(all_features_data.shape)
-print(all_features_test.shape)
-# ''' find valid lasso columns '''
-# model_coef = model.coef_.tolist()
+''' find valid lasso columns '''
+model_coef = model.coef_.tolist()
+
+model_matrix = np.concatenate((all_features_data.columns.values.reshape(-1,1),
+                               model.coef_.reshape(-1,1)), axis=1)
+model_matrix = pd.DataFrame.from_records(model_matrix)
+model_matrix.columns = ['feature','coef']
+
+model_matrix = model_matrix[model_matrix['coef'] != 0 ]
+valid_col = model_matrix['feature'].values
+
+""" xgboost """
+
+# gb = xgb.XGBRegressor(n_estimators=100, learning_rate=0.08, gamma=0, subsample=0.75,
+#                            colsample_bytree=1, max_depth=7)
 #
-# model_matrix = np.concatenate((all_features_data.columns.values.reshape(-1,1),
-#                                model.coef_.reshape(-1,1)), axis=1)
-# model_matrix = pd.DataFrame.from_records(model_matrix)
-# model_matrix.columns = ['feature','coef']
+# model_gb = gb.fit(valid_col, y_train_values)
+
+all_features_test.values.tolist()
+
+#print(map(lambda x,y : x == y , all_features_test.values.tolist() , valid_col))
+
+#test_pred = model_gb.predict(all_features_test)
+
 #
-# model_matrix = model_matrix[model_matrix['coef'] != 0 ]
-# valid_col = model_matrix['feature'].values
-
-
-test_pred = model.predict(all_features_test)
-test_pred = np.expm1(test_pred)
-print("Root Mean Squared Error")
-print(sqrt(mean_squared_error(y_train_values, y_pred)))
-
-test_pred = test_pred.reshape(-1,1)
-test_pred = pd.DataFrame.from_records(test_pred)
-
-
-submit = pd.concat([test['Id'],test_pred], axis=1)
-submit.columns = ["Id", "SalePrice"]
-
-
-submit.to_csv("../data/submission.csv", mode='w', index = False)
+# test_pred = np.expm1(test_pred)
+# print("Root Mean Squared Error")
+# print(sqrt(mean_squared_error(y_train_values, y_pred)))
+#
+# test_pred = test_pred.reshape(-1,1)
+# test_pred = pd.DataFrame.from_records(test_pred)
+#
+#
+# submit = pd.concat([test['Id'],test_pred], axis=1)
+# submit.columns = ["Id", "SalePrice"]
+#
+# submit.to_csv("../data/submission.csv", mode='w', index = False)
 
 
 
