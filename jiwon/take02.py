@@ -88,6 +88,8 @@ for col in cols_encoding_needed:
 fix numeric features skewness by applying boxcox
 """
 numeric_columns = combined_data.dtypes[combined_data.dtypes != "object"].index
+print(numeric_columns)
+numeric_columns = numeric_columns.drop("data_type")
 
 from scipy.stats import skew
 skewed_columns = combined_data[numeric_columns].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
@@ -101,6 +103,17 @@ for feat in skewed_features:
     combined_data[feat] = boxcox1p(combined_data[feat], 0.15)
 
 
+
+"""
+scaler
+"""
+from sklearn import preprocessing
+scaler = preprocessing.StandardScaler()
+combined_data[numeric_columns] = scaler.fit_transform(combined_data[numeric_columns])
+
+#robust_scaled_df = pd.DataFrame(robust_scaled_df, columns=['x1', 'x2'])
+
+
 """
 Drop some features
 """
@@ -110,11 +123,18 @@ features_to_drop = []
 combined_data.drop(features_to_drop, axis=1, inplace=True)
 
 
+
+
+
+
+
+
 """
 get dummies
 """
 
 combined_data = pd.get_dummies(combined_data)
+
 
 
 
