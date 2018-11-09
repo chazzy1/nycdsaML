@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from sklearn.metrics import mean_squared_error
+from math import sqrt
 
 from scipy.special import boxcox1p, boxcox
 
@@ -9,11 +11,21 @@ load data
 train_set = pd.read_csv('../data/train.csv')
 test_set = pd.read_csv('../data/test.csv')
 
+
+
+"""
+Remove Outliers
+"""
+outliers = train_set[(train_set['GrLivArea'] > 4000) & (train_set['SalePrice'] < 300000)].index
+train_set.drop(outliers, inplace=True)
+
+
 """
 fix salePrice skewness
 """
 train_set["SalePrice"] = np.log1p(train_set["SalePrice"])
 y_train_values = train_set["SalePrice"].values
+
 
 
 """
@@ -106,32 +118,48 @@ combined_data = pd.get_dummies(combined_data)
 
 
 
+train_data = combined_data[combined_data['data_type'] == 0].drop('data_type', axis=1)
+predict_data = combined_data[combined_data['data_type'] == 1].drop('data_type', axis=1)
+
 """
 lasso fit
 """
 from sklearn.linear_model import Lasso
 lasso = Lasso()
-
 lasso.set_params(alpha=0.0005, normalize=True)
-
-model = lasso.fit(combined_data[combined_data['data_type'] == 0].drop('data_type', axis=1), y_train_values)
-
-from sklearn.metrics import mean_squared_error
-from math import sqrt
-
-y_pred = model.predict(combined_data[combined_data['data_type'] == 0].drop('data_type', axis=1))
+model_lasso = lasso.fit(train_data, y_train_values)
 
 
+print("Lasso Root Mean Squared Error")
+print(sqrt(mean_squared_error(y_train_values, model_lasso.predict(train_data))))
 
-print("Root Mean Squared Error")
-print(sqrt(mean_squared_error(y_train_values, y_pred)))
+
+sale_price_lasso = np.expm1(model_lasso.predict(predict_data))
+
+"""
+elasticNet fit
+"""
+from sklearn.linear_model import ElasticNet
+
+enet = ElasticNet(alpha=0.0005, l1_ratio=0.9)
+
+model_enet = enet.fit(train_data, y_train_values)
+
+print("ElasticNet Root Mean Squared Error")
+print(sqrt(mean_squared_error(y_train_values, model_enet.predict(train_data))))
+
+sale_price_enet = np.expm1(model_enet.predict(predict_data))
 
 
-sale_price = np.expm1(model.predict(combined_data[combined_data['data_type'] == 1].drop('data_type', axis=1)))
 
+sale_price_ensemble = (sale_price_enet + sale_price_lasso)/2
+
+"""
+export submission data
+"""
 submission = pd.DataFrame({
     "Id": test_set_id,
-    "SalePrice": sale_price
+    "SalePrice": sale_price_ensemble
 })
 submission.to_csv('submission.csv', index=False)
 
