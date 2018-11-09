@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from math import sqrt
-
+import xgboost as xgb
 from scipy.special import boxcox1p, boxcox
 
 """
@@ -129,6 +129,14 @@ lasso = Lasso()
 lasso.set_params(alpha=0.0005, normalize=True)
 model_lasso = lasso.fit(train_data, y_train_values)
 
+
+print("Lasso Root Mean Squared Error")
+print(sqrt(mean_squared_error(y_train_values, model_lasso.predict(train_data))))
+
+
+sale_price_lasso = np.expm1(model_lasso.predict(predict_data))
+
+
 """drop columns from lasso """
 
 model_coef = model_lasso.coef_.tolist()
@@ -141,14 +149,13 @@ model_matrix.columns = ['feature','coef']
 model_matrix = model_matrix[model_matrix['coef'] != 0 ]
 valid_col = model_matrix['feature'].values
 
-test_new = pd.concat([predict_data, model_matrix['feature']], axis=1, join='inner')
-print(test_new.info())
+#test_new = pd.concat([predict_data, model_matrix['feature']], axis=1, join='inner')
+train_data_new   = train_data.loc[:, train_data.columns.isin(valid_col)]
+predict_data_new = predict_data.loc[:, predict_data.columns.isin(valid_col)]
+#print(train_data_new.info())
+#print(predict_data_new.info())
 
-print("Lasso Root Mean Squared Error")
-print(sqrt(mean_squared_error(y_train_values, model_lasso.predict(train_data))))
-
-
-sale_price_lasso = np.expm1(model_lasso.predict(predict_data))
+#
 #
 # """
 # elasticNet fit
@@ -164,17 +171,38 @@ sale_price_lasso = np.expm1(model_lasso.predict(predict_data))
 #
 # sale_price_enet = np.expm1(model_enet.predict(predict_data))
 #
-#
-#
 # sale_price_ensemble = (sale_price_enet + sale_price_lasso)/2
 #
 # """
-# export submission data
+# xgboost
 # """
+# print('xgboost')
+#
+# gbm = xgb.XGBRegressor(n_estimators=1000, learning_rate=0.05)\
+#     .fit(train_data, y_train_values,
+#          early_stopping_rounds=5,
+#          eval_set=[(train_data, y_train_values)], verbose=False)
+# predictions = gbm.predict(predict_data)
+# sale_price_xgb = np.expm1(gbm.predict(predict_data))
+#
+# submission = pd.DataFrame({
+#     "Id": test_set_id,
+#     "SalePrice": sale_price_xgb
+# })
+# submission.to_csv('submission_xgboost.csv', index=False)
+#
+# print("Xgboost Root Mean Squared Error")
+# print(sqrt(mean_squared_error(y_train_values, gbm.predict(train_data))))
+#
+#
+# sale_price_ensemble = (sale_price_enet + sale_price_lasso + sale_price_xgb)/3
+#
+#
 # submission = pd.DataFrame({
 #     "Id": test_set_id,
 #     "SalePrice": sale_price_ensemble
 # })
-# submission.to_csv('submission.csv', index=False)
+# submission.to_csv('submission_ensemble.csv', index=False)
+#
 #
 #
