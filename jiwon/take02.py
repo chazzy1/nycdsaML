@@ -6,8 +6,8 @@ from scipy.special import boxcox1p, boxcox
 """
 load data
 """
-train_set = pd.read_csv('./data/train.csv')
-test_set = pd.read_csv('./data/test.csv')
+train_set = pd.read_csv('../data/train.csv')
+test_set = pd.read_csv('../data/test.csv')
 
 """
 fix salePrice skewness
