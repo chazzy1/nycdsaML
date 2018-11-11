@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from math import sqrt
-
+import xgboost as xgb
 from scipy.special import boxcox1p, boxcox
 
 """
@@ -51,7 +51,6 @@ combined_data = pd.concat((train_set, test_set))
 """
 fix NaN
 """
-
 for col in ['GarageType', 'GarageFinish', 'GarageQual', 'GarageCond',
             'PoolQC', 'MiscFeature', 'Alley', 'Fence', 'FireplaceQu',
             'BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2', 'MasVnrType',
@@ -59,10 +58,6 @@ for col in ['GarageType', 'GarageFinish', 'GarageQual', 'GarageCond',
             'Exterior2nd', 'SaleType', 'MSSubClass'
             ]:
     combined_data[col] = combined_data[col].fillna(combined_data[col].mode()[0])
-
-
-
-
 
 
 for col in ['GarageYrBlt', 'GarageArea', 'GarageCars', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF',
@@ -93,8 +88,6 @@ for col in cols_encoding_needed:
 fix numeric features skewness by applying boxcox
 """
 numeric_columns = combined_data.dtypes[combined_data.dtypes != "object"].index
-print(numeric_columns)
-numeric_columns = numeric_columns.drop("data_type")
 
 from scipy.stats import skew
 skewed_columns = combined_data[numeric_columns].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
@@ -108,32 +101,13 @@ for feat in skewed_features:
     combined_data[feat] = boxcox1p(combined_data[feat], 0.15)
 
 
-
-"""
-scaler
-"""
-from sklearn import preprocessing
-scaler = preprocessing.StandardScaler()
-combined_data[numeric_columns] = scaler.fit_transform(combined_data[numeric_columns])
-
-#robust_scaled_df = pd.DataFrame(robust_scaled_df, columns=['x1', 'x2'])
-
-
 """
 Drop some features
 """
 
-features_to_drop = ['Street', 'Alley', 'Utilities', 'LandSlope', 'Condition2', 'YearRemodAdd', 'RoofMatl',
-                'BsmtFinType2', 'BsmtFinSF2', 'Heating', 'LowQualFinSF', 'BsmtHalfBath', 'GarageQual',
-                'GarageCond', 'PoolQC', 'MiscFeature', 'MiscVal', 'YrSold']
+features_to_drop = []
 
 combined_data.drop(features_to_drop, axis=1, inplace=True)
-
-
-
-
-
-
 
 
 """
@@ -141,7 +115,6 @@ get dummies
 """
 
 combined_data = pd.get_dummies(combined_data)
-
 
 
 
@@ -163,6 +136,29 @@ print(sqrt(mean_squared_error(y_train_values, model_lasso.predict(train_data))))
 
 sale_price_lasso = np.expm1(model_lasso.predict(predict_data))
 
+
+"""drop columns from lasso """
+
+model_coef = model_lasso.coef_.tolist()
+
+
+model_matrix = np.concatenate((train_data.columns.values.reshape(-1,1),
+                               model_lasso.coef_.reshape(-1,1)), axis=1)
+model_matrix = pd.DataFrame.from_records(model_matrix)
+model_matrix.columns = ['feature','coef']
+
+model_matrix = model_matrix[model_matrix['coef'] != 0 ]
+valid_col = model_matrix['feature'].values
+
+train_data_new   = train_data.loc[:, train_data.columns.isin(valid_col)]
+predict_data_new = predict_data.loc[:, predict_data.columns.isin(valid_col)]
+
+print(train_data_new.info())
+print(predict_data_new.info())
+
+
+
+
 """
 elasticNet fit
 """
@@ -170,24 +166,44 @@ from sklearn.linear_model import ElasticNet
 
 enet = ElasticNet(alpha=0.0005, l1_ratio=0.9)
 
-model_enet = enet.fit(train_data, y_train_values)
+model_enet = enet.fit(train_data_new, y_train_values)
 
 print("ElasticNet Root Mean Squared Error")
-print(sqrt(mean_squared_error(y_train_values, model_enet.predict(train_data))))
+print(sqrt(mean_squared_error(y_train_values, model_enet.predict(train_data_new))))
 
-sale_price_enet = np.expm1(model_enet.predict(predict_data))
+sale_price_enet = np.expm1(model_enet.predict(predict_data_new))
 
-
-
-sale_price_ensemble = (sale_price_enet + sale_price_lasso)/2
+#sale_price_ensemble = (sale_price_enet + sale_price_lasso)/2
 
 """
-export submission data
+xgboost
 """
+print('xgboost')
+
+gbm = xgb.XGBRegressor(n_estimators=1000, learning_rate=0.05)\
+    .fit(train_data_new, y_train_values,
+         early_stopping_rounds=5,
+         eval_set=[(train_data_new, y_train_values)], verbose=False)
+predictions = gbm.predict(predict_data_new)
+sale_price_xgb = np.expm1(gbm.predict(predict_data_new))
+
+submission = pd.DataFrame({
+    "Id": test_set_id,
+    "SalePrice": sale_price_xgb
+})
+submission.to_csv('submission_xgboost.csv', index=False)
+
+print("Xgboost Root Mean Squared Error")
+print(sqrt(mean_squared_error(y_train_values, gbm.predict(train_data_new))))
+
+
+sale_price_ensemble = (sale_price_enet + sale_price_lasso + sale_price_xgb)/3
+
 submission = pd.DataFrame({
     "Id": test_set_id,
     "SalePrice": sale_price_ensemble
 })
-submission.to_csv('submission.csv', index=False)
+submission.to_csv('submission_ensemble.csv', index=False)
+
 
 
