@@ -4,6 +4,7 @@ from sklearn.metrics import mean_squared_error
 from math import sqrt
 import xgboost as xgb
 from scipy.special import boxcox1p, boxcox
+import lightgbm as lgb
 
 """
 load data
@@ -190,26 +191,10 @@ xgboost
 """
 print('xgboost')
 
-gbm = xgb.XGBRegressor(
-                 colsample_bytree=0.2,
-                 gamma=0.0,
-                 learning_rate=0.01,
-                 max_depth=4,
-                 min_child_weight=1.5,
-                 n_estimators=7200,
-                 reg_alpha=0.9,
-                 reg_lambda=0.6,
-                 subsample=0.2,
-                 seed=42,
-                 silent=1)
-gbm.fit(train_data, y_train_values,
+gbm = xgb.XGBRegressor(n_estimators=1000, learning_rate=0.05)\
+    .fit(train_data, y_train_values,
          early_stopping_rounds=5,
          eval_set=[(train_data, y_train_values)], verbose=False)
-
-# gbm = xgb.XGBRegressor(n_estimators=1000, learning_rate=0.05)\
-#     .fit(train_data, y_train_values,
-#          early_stopping_rounds=5,
-#          eval_set=[(train_data, y_train_values)], verbose=False)
 predictions = gbm.predict(predict_data)
 sale_price_xgb = np.expm1(gbm.predict(predict_data))
 
@@ -223,7 +208,7 @@ print("Xgboost Root Mean Squared Error")
 print(sqrt(mean_squared_error(y_train_values, gbm.predict(train_data))))
 
 
-sale_price_ensemble = ( sale_price_enet  + sale_price_lasso + sale_price_xgb )/3
+sale_price_ensemble = (sale_price_enet + sale_price_lasso + sale_price_xgb)/3
 
 submission = pd.DataFrame({
     "Id": test_set_id,
