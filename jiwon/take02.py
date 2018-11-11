@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from math import sqrt
+from utils.utils import *
+
 
 from scipy.special import boxcox1p, boxcox
 
@@ -51,20 +53,14 @@ combined_data = pd.concat((train_set, test_set))
 """
 fix NaN
 """
-for col in ['GarageType', 'GarageFinish', 'GarageQual', 'GarageCond',
-            'PoolQC', 'MiscFeature', 'Alley', 'Fence', 'FireplaceQu',
-            'BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2', 'MasVnrType',
-            'MSZoning', 'Functional', 'Electrical','KitchenQual', 'Exterior1st',
-            'Exterior2nd', 'SaleType', 'MSSubClass'
-            ]:
+categorical_with_nan = get_columns_with_nan(combined_data[get_categorical_columns(combined_data)])
+
+for col in categorical_with_nan:
     combined_data[col] = combined_data[col].fillna(combined_data[col].mode()[0])
 
+numerical_with_nan = get_columns_with_nan(combined_data[get_numeric_columns(combined_data)])
 
-for col in ['GarageYrBlt', 'GarageArea', 'GarageCars', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF',
-            'TotalBsmtSF', 'BsmtFullBath', 'BsmtHalfBath', 'MasVnrArea',
-            'Electrical','KitchenQual', 'Exterior1st', 'Exterior2nd', 'SaleType',
-            'LotFrontage'
-            ]:
+for col in numerical_with_nan:
     combined_data[col] = combined_data[col].fillna(0)
 
 """
@@ -88,7 +84,9 @@ for col in cols_encoding_needed:
 fix numeric features skewness by applying boxcox
 """
 numeric_columns = combined_data.dtypes[combined_data.dtypes != "object"].index
-print(numeric_columns)
+
+
+
 numeric_columns = numeric_columns.drop("data_type")
 
 from scipy.stats import skew
