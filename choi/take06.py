@@ -5,7 +5,6 @@ from math import sqrt
 import xgboost as xgb
 import lightgbm as lgb
 from utils.utils import *
-from scipy.special import boxcox1p, boxcox
 
 """
 load data
@@ -16,19 +15,11 @@ test_set = pd.read_csv('../data/test.csv')
 """
 Remove Outliers
 """
-# outliers = train_set[(train_set['GrLivArea'] > 4000) & (train_set['SalePrice'] < 300000)].index
-# train_set.drop(outliers, inplace=True)
-
-# As suggested by many participants, we remove several outliers
 train_set.drop(train_set[(train_set['GrLivArea'] > 4000) & (train_set['SalePrice'] < 300000)].index, inplace=True)
 train_set.drop(train_set[(train_set['OverallQual']<5) & (train_set['SalePrice']>200000)].index, inplace=True)
 train_set.drop(train_set[(train_set['GrLivArea']>4000) & (train_set['SalePrice']<300000)].index, inplace=True)
 train_set.reset_index(drop=True, inplace=True)
 
-# Some of the non-numeric predictors are stored as numbers; we convert them into strings
-# train_set['MSSubClass'] = train_set['MSSubClass'].apply(str)
-# train_set['YrSold'] = train_set['YrSold'].astype(str)
-# train_set['MoSold'] = train_set['MoSold'].astype(str)
 
 """
 fix salePrice skewness
@@ -64,7 +55,7 @@ percent = (combined_data.isnull().sum()/combined_data.isnull().count()).sort_val
 missing_data = pd.concat([total, percent], axis=1, keys=['Total', 'Percent'])
 
 # drop columns over 40% what fill with NAN
-features_to_drop = missing_data[missing_data['Percent'] > 0.7].index
+features_to_drop = missing_data[missing_data['Percent'] > 0.4].index
 features_to_drop = features_to_drop.union(['GarageArea'])
 combined_data.drop(features_to_drop, axis=1, inplace=True)
 
@@ -77,6 +68,7 @@ combined_data.drop(features_to_drop, axis=1, inplace=True)
 # combined_data['TotalSF'] = combined_data['1stFlrSF'] + combined_data['2ndFlrSF']
 # combined_data.drop(['TotalBsmtSF','1stFlrSF','2ndFlrSF'], axis=1, inplace=True)
 combined_data.drop(['1stFlrSF','2ndFlrSF'], axis=1, inplace=True)
+
 """
 fix NaN
 """
@@ -90,30 +82,31 @@ numerical_with_nan = get_columns_with_nan(combined_data[get_numeric_columns(comb
 
 for col in numerical_with_nan:
     combined_data[col] = combined_data[col].fillna(0)
+
 """
 encode categorical features
 """
 from sklearn.preprocessing import LabelEncoder
-#
-# cols_encoding_needed = ('BsmtQual', 'BsmtCond', 'GarageQual', 'GarageCond',
-#         'ExterQual', 'ExterCond','HeatingQC', 'KitchenQual', 'BsmtFinType1',
-#         'BsmtFinType2', 'Functional',   'BsmtExposure', 'GarageFinish', 'LandSlope',
-#         'LotShape', 'PavedDrive', 'Street', 'CentralAir', 'MSSubClass', 'OverallCond',
-#         'YrSold', 'MoSold')
 
 cols_encoding_needed = ('BsmtQual', 'BsmtCond', 'GarageQual', 'GarageCond',
         'ExterQual', 'ExterCond','HeatingQC', 'KitchenQual', 'BsmtFinType1',
         'BsmtFinType2', 'Functional',   'BsmtExposure', 'GarageFinish', 'LandSlope',
-        'LotShape', 'PavedDrive', 'Street', 'CentralAir', 'MSSubClass', 'OverallCond')
+        'LotShape', 'PavedDrive', 'Street', 'CentralAir', 'MSSubClass', 'OverallCond',
+        'YrSold', 'MoSold')
 
+# cols_encoding_needed = ('BsmtQual', 'BsmtCond', 'GarageQual', 'GarageCond',
+#         'ExterQual', 'ExterCond','HeatingQC', 'KitchenQual', 'BsmtFinType1',
+#         'BsmtFinType2', 'Functional',   'BsmtExposure', 'GarageFinish', 'LandSlope',
+#         'LotShape', 'PavedDrive', 'Street', 'CentralAir', 'MSSubClass', 'OverallCond')
 
-#cols_encoding_needed = combined_data[get_categorical_columns(combined_data)]
+#
+# cols_encoding_needed = combined_data[get_categorical_columns(combined_data)]
 #
 # for col in cols_encoding_needed:
 #     lbl = LabelEncoder()
 #     lbl.fit(list(combined_data[col].values))
 #     combined_data[col] = lbl.transform(list(combined_data[col].values))
-
+#
 
 """
 fix numeric features skewness by applying boxcox
@@ -133,8 +126,6 @@ skewed_features = skewed_columns.index
 for feat in skewed_features:
     combined_data[feat] = boxcox1p(combined_data[feat], 0.15)
 
-
-
 """
 scaler
 """
@@ -152,10 +143,13 @@ combined_data = pd.get_dummies(combined_data)
 train_data = combined_data[combined_data['data_type'] == 0].drop('data_type', axis=1)
 predict_data = combined_data[combined_data['data_type'] == 1].drop('data_type', axis=1)
 
+
+
 """
 lasso fit
 """
 from sklearn.linear_model import Lasso
+
 lasso = Lasso()
 lasso.set_params(alpha=0.0005, normalize=True)
 model_lasso = lasso.fit(train_data, y_train_values)
@@ -181,10 +175,8 @@ print(sqrt(mean_squared_error(y_train_values, model_enet.predict(train_data))))
 sale_price_enet = np.expm1(model_enet.predict(predict_data))
 
 """
-# xgboost
+xgboost
 """
-print('xgboost')
-
 xgbm = xgb.XGBRegressor(
                  colsample_bytree=0.2,
                  gamma=0.0,
@@ -200,33 +192,16 @@ xgbm = xgb.XGBRegressor(
 xgbm.fit(train_data, y_train_values,
          early_stopping_rounds=5,
          eval_set=[(train_data, y_train_values)], verbose=False)
-#
-# gbm = xgb.XGBRegressor(n_estimators=1000, learning_rate=0.05)\
-#     .fit(train_data, y_train_values,
-#          early_stopping_rounds=5,
-#          eval_set=[(train_data, y_train_values)], verbose=False)
+
 predictions = xgbm.predict(predict_data)
 sale_price_xgb = np.expm1(xgbm.predict(predict_data))
 
 print("Xgboost Root Mean Squared Error")
 print(sqrt(mean_squared_error(y_train_values, xgbm.predict(train_data))))
 
-"""LightGBM"""
-
-
-params = {
-        "objective" : "regression",
-        "metric" : "rmse",
-        "num_leaves" : 40,
-        "learning_rate" : 0.004,
-        "bagging_fraction" : 0.6,
-        "feature_fraction" : 0.6,
-        "bagging_frequency" : 6,
-        "bagging_seed" : 42,
-        "verbosity" : -1,
-        "seed": 42
-    }
-
+"""
+LightGBM
+"""
 cat_features = []
 for i, c in enumerate(train_data.columns):
     if('_cat' in c):
@@ -242,11 +217,6 @@ lgb_model = lgb.LGBMRegressor(objective='regression',num_leaves=40,
 lgb_model.fit(train_data, y_train_values, early_stopping_rounds=5,
           eval_set=[(train_data, y_train_values)], verbose=False)
 
-# lgbm.fit(train_data, y_train_values,
-#          early_stopping_rounds=5,
-#          eval_set=[(train_data, y_train_values)], verbose=False)
-#
-# predictions = lgb_model.predict(predict_data)
 sale_price_lgb = np.expm1(lgb_model.predict(predict_data))
 
 print("lightGBM Root Mean Squared Error")
