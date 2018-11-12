@@ -57,10 +57,14 @@ missing_data = pd.concat([total, percent], axis=1, keys=['Total', 'Percent'])
 
 features_to_drop = missing_data[missing_data['Percent'] > 0.4].index
 features_to_drop = features_to_drop.union(['GarageArea'])
+
 combined_data.drop(features_to_drop, axis=1, inplace=True)
 ## ['PoolQC', 'MiscFeature', 'Alley', 'Fence', 'FireplaceQu']
 ## ## GarageCars & GagageArea has Multicollinearity so take 1 feature
 ## So remove 'GarageArea'
+
+"""sum of ch"""
+
 
 """
 fix NaN
@@ -189,6 +193,7 @@ sale_price_ensemble = (sale_price_enet + sale_price_lasso)/2
 xgboost
 """
 print('xgboost')
+
 
 gbm = xgb.XGBRegressor(
                  colsample_bytree=0.2,
