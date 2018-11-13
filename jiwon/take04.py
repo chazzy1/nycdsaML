@@ -235,7 +235,7 @@ def main():
                              )
 
     model = StackingRegressor(
-        regressors=[rf, gb, nn, lso, xgb],
+        regressors=[rf, gb, nn, lso, gbm],
         meta_regressor=Lasso(alpha=0.0005)
     )
 
