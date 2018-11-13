@@ -99,7 +99,7 @@ class TrainDataSeparator(TransformerMixin):
         return train_data
 
 
-def get_best_estimator(train_data, y_train_values, estimator=None, params={}, cv=5):
+def get_best_estimator(train_data, y_train_values, estimator=None, params={}, cv=5, n_jobs=-1):
     name = estimator.__class__.__name__
     pipeline = Pipeline(steps=[
         (name, estimator),
@@ -113,12 +113,9 @@ def get_best_estimator(train_data, y_train_values, estimator=None, params={}, cv
 
     scorer = make_scorer(mean_squared_error, greater_is_better=False)
 
-    grid_search = GridSearchCV(pipeline, param_grid=params, scoring=scorer, cv=cv, verbose=1)
+    grid_search = GridSearchCV(pipeline, param_grid=params, scoring=scorer, cv=cv, verbose=1, n_jobs=n_jobs)
     grid_search.fit(train_data, y_train_values)
 
-    cvres = grid_search.cv_results_
+    print("Estimator: {} score: ({}) best params: {}".format(name, sqrt(-grid_search.best_score_), grid_search.best_params_))
 
-    cvres = sorted([(sqrt(-score), para) for score, para in zip(cvres['mean_test_score'], cvres['params'])], reverse=False)
-    print("best "+name)
-    print(cvres)
     return grid_search.best_estimator_

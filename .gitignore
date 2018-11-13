@@ -106,8 +106,6 @@ venv.bak/
 .idea/
 .ipynb_checkpoints/
 
-submission.csv
-*/submission.csv
+jiwon/**/*.csv
 *.~lock*
-jiwon/
-submission.csv
+
