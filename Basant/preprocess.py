@@ -20,9 +20,12 @@ def process_data(train_path, test_path, train_opt_path='p_train.csv', test_opt_p
     price_opt_path -- File name to save target as
     """
 
+    print('start load file ')
+
     # Load data as dataframes
     train = pd.read_csv(train_path, index_col = 'Id')
     test = pd.read_csv(test_path, index_col = 'Id')
+
 
     # Drop two outliers with very high GrLivArea and low SalePrice
     train = train.drop(train[(train.GrLivArea > 4000) & (train.SalePrice < 300000)].index)
@@ -31,11 +34,14 @@ def process_data(train_path, test_path, train_opt_path='p_train.csv', test_opt_p
     train = train.drop(train[train.LotFrontage > 300].index)
 
     # Store SalePrice from train datatframe as log(SalePrice), save for later, drop SalePrice from train
-    saleprice = np.log(train.SalePrice)
+    saleprice = np.log1p(train.SalePrice)
     train.drop("SalePrice", axis=1, inplace=True)
 
+    print('start combine ')
     # Combine training and test dataframes
     df = pd.concat([train, test], sort=False)
+
+
 
     # Add '_' to the beginning of feature names if they start with a number
     df.columns = list(map(lambda x: '_' + x if re.match('^\d', x) else x, df.columns))
@@ -293,6 +299,6 @@ def process_data(train_path, test_path, train_opt_path='p_train.csv', test_opt_p
     final_test.to_csv(test_opt_path)
     saleprice.to_csv(price_opt_path)
 
-
+#Test
 process_data("../data/train.csv","../data/test.csv")
 

@@ -208,7 +208,7 @@ for i, c in enumerate(train_data.columns):
          cat_features.append(c)
 
 lgb_model = lgb.LGBMRegressor(objective='regression',num_leaves=40,
-                              learning_rate=0.004, n_estimators=1000,
+                              learning_rate=0.01, n_estimators=4000,
                               bagging_fraction = 0.6,
                               bagging_freq = 6, feature_fraction = 0.6,
                               feature_fraction_seed=9, bagging_seed=42,
