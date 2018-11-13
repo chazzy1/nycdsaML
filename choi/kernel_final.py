@@ -1,6 +1,4 @@
-
 # coding: utf-8
-
 # # Content
 
 # __1. Exploratory Visualization__  
@@ -24,7 +22,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.pipeline import Pipeline, make_pipeline
 from scipy.stats import skew
 from sklearn.decomposition import PCA, KernelPCA
-from sklearn.preprocessing import Imputer
+from sklearn.impute import SimpleImputer
 
 from sklearn.model_selection import cross_val_score, GridSearchCV, KFold
 from sklearn.linear_model import LinearRegression
@@ -43,9 +41,8 @@ test = pd.read_csv('../data/test.csv')
 
 
 """ Removing outliers """
-
 train.drop(train[(train['GrLivArea'] > 4000) & (train['SalePrice'] < 300000)].index, inplace=True)
-train.drop(train[(train['OverallQual']<5) & (train['SalePrice']>200000)].index, inplace=True)
+#train.drop(train[(train['OverallQual']<5) & (train['SalePrice']>200000)].index, inplace=True)
 
 """  prepare combined data  """
 full = pd.concat([train,test], ignore_index=True)
@@ -226,11 +223,7 @@ data_pipe.shape
 
 # + __use robustscaler since maybe there are other outliers.__
 
-
 scaler = RobustScaler()
-
-
-
 n_train=train.shape[0]
 
 X = data_pipe[:n_train]
@@ -244,28 +237,12 @@ test_X_scaled = scaler.transform(test_X)
 
 # ## Feature Selection
 
-# In[36]:
-
-
 #Feature Selection Lasso
 
 lasso=Lasso(alpha=0.001)
 lasso.fit(X_scaled,y_log)
-
-
-# In[37]:
-
-
 FI_lasso = pd.DataFrame({"Feature Importance":lasso.coef_}, index=data_pipe.columns)
-
-
-# In[38]:
-
-
 FI_lasso.sort_values("Feature Importance",ascending=False)
-
-
-# In[39]:
 
 
 FI_lasso[FI_lasso["Feature Importance"]!=0].sort_values("Feature Importance").plot(kind="barh",figsize=(15,25))
@@ -324,7 +301,7 @@ class add_feature(BaseEstimator, TransformerMixin):
 
 pipe = Pipeline([
     ('labenc', labelenc()),
-    #('add_feature', add_feature(additional=2)),
+    ('add_feature', add_feature(additional=2)),
     ('skew_dummies', skew_dummies(skew=1)),
     ])
 
@@ -338,13 +315,13 @@ y= train.SalePrice
 X_scaled = scaler.fit(X).transform(X)
 y_log = np.log1p(train.SalePrice)
 test_X_scaled = scaler.transform(test_X)
-#
-#
-# pca = PCA(n_components=410)
-#
-#
-# X_scaled=pca.fit_transform(X_scaled)
-# test_X_scaled = pca.transform(test_X_scaled)
+
+
+pca = PCA(n_components=410)
+
+
+X_scaled=pca.fit_transform(X_scaled)
+test_X_scaled = pca.transform(test_X_scaled)
 
 
 X_scaled.shape, test_X_scaled.shape
@@ -352,7 +329,7 @@ X_scaled.shape, test_X_scaled.shape
 
 # define cross validation strategy Fold = 10
 def rmse_cv(model,X,y):
-    rmse = np.sqrt(-cross_val_score(model, X, y, scoring="neg_mean_squared_error", cv=10))
+    rmse = np.sqrt(-cross_val_score(model, X, y, scoring="neg_mean_squared_error", cv=5))
     return rmse
 
 models = [LinearRegression(),Ridge(),Lasso(alpha=0.01,max_iter=10000),RandomForestRegressor(),GradientBoostingRegressor(),SVR(),LinearSVR(),
@@ -372,12 +349,12 @@ class grid():
         self.model = model
     
     def grid_get(self,X,y,param_grid):
-        grid_search = GridSearchCV(self.model,param_grid,cv=10, scoring="neg_mean_squared_error")
+        grid_search = GridSearchCV(self.model,param_grid,cv=5, scoring="neg_mean_squared_error")
         grid_search.fit(X,y)
         print(grid_search.best_params_, np.sqrt(-grid_search.best_score_))
         grid_search.cv_results_['mean_test_score'] = np.sqrt(-grid_search.cv_results_['mean_test_score'])
         print(pd.DataFrame(grid_search.cv_results_)[['params','mean_test_score','std_test_score']])
-#
+# #
 # #Lasso
 # grid(Lasso()).grid_get(X_scaled,y_log,{'alpha': [0.0004,0.0005,0.0007,0.0009],'max_iter':[10000]})
 # grid(Ridge()).grid_get(X_scaled,y_log,{'alpha':[35,40,45,50,55,60,65,70,80,90]})
@@ -423,19 +400,19 @@ w4 = 0.3
 w5 = 0.03
 w6 = 0.2
 
+#
+# weight_avg = AverageWeight(mod = [lasso,ridge,svr,ker,ela,bay],weight=[w1,w2,w3,w4,w5,w6])
+# score = rmse_cv(weight_avg,X_scaled,y_log)
+# print(score.mean())
 
-weight_avg = AverageWeight(mod = [lasso,ridge,svr,ker,ela,bay],weight=[w1,w2,w3,w4,w5,w6])
-score = rmse_cv(weight_avg,X_scaled,y_log)
-print(score.mean())
-
-
-
-#But if we average only two best models, we gain better cross-validation score.
-weight_avg = AverageWeight(mod = [svr,ker],weight=[0.5,0.5])
-
-
-score = rmse_cv(weight_avg,X_scaled,y_log)
-print(score.mean())
+#
+#
+# #But if we average only two best models, we gain better cross-validation score.
+# weight_avg = AverageWeight(mod = [svr,ker],weight=[0.5,0.5])
+#
+#
+# score = rmse_cv(weight_avg,X_scaled,y_log)
+# print(score.mean())
 
 #Stacking
 
@@ -478,96 +455,101 @@ class stacking(BaseEstimator, RegressorMixin, TransformerMixin):
         return oof, test_mean
 
 # must do imputer first, otherwise stacking won't work, and i don't know why.
-a = Imputer().fit_transform(X_scaled)
-b = Imputer().fit_transform(y_log.values.reshape(-1,1)).ravel()
-
-
-stack_model = stacking(mod=[lasso,ridge,svr,ker,ela,bay],meta_model=ker)
-
-
+# a = Imputer().fit_transform(X_scaled)
+# b = Imputer().fit_transform(y_log.values.reshape(-1,1)).ravel()
+a = SimpleImputer().fit_transform(X_scaled)
+b = SimpleImputer().fit_transform(y_log.values.reshape(-1,1)).ravel()
+#
+# stack_model = stacking(mod=[lasso,ridge,svr,ker,ela,bay],meta_model=ker)
+#
+#
 # score = rmse_cv(stack_model,a,b)
+# print('Stack_model before')
 # print(score.mean())
-
-#Extract the features generated from stacking, then combine them with original features.
-X_train_stack, X_test_stack = stack_model.get_oof(a,b,test_X_scaled)
-
-
-
-X_train_stack.shape, a.shape
-X_train_add = np.hstack((a,X_train_stack))
-
-X_test_add = np.hstack((test_X_scaled,X_test_stack))
-
-X_train_add.shape, X_test_add.shape
-
-score = rmse_cv(stack_model,X_train_add,b)
-print(score.mean())
-
-# This is the final model
-stack_model = stacking(mod=[lasso,ridge,svr,ker,ela,bay],meta_model=ker)
-stack_model.fit(a,b)
-
-pred = np.expm1(stack_model.predict(test_X_scaled))
-
-result=pd.DataFrame({'Id':test.Id, 'SalePrice':pred})
-result.to_csv("submission_new.csv",index=False)
+#
+# #Extract the features generated from stacking, then combine them with original features.
+# X_train_stack, X_test_stack = stack_model.get_oof(a,b,test_X_scaled)
+#
+# X_train_stack.shape, a.shape
+# X_train_add = np.hstack((a,X_train_stack))
+#
+# X_test_add = np.hstack((test_X_scaled,X_test_stack))
+#
+# X_train_add.shape, X_test_add.shape
+#
+# score = rmse_cv(stack_model,X_train_add,b)
+# print('Stack_model after')
+# print(score.mean())
+#
+# # This is the final model
+# stack_model = stacking(mod=[lasso,ridge,svr,ker,ela,bay],meta_model=ker)
+# stack_model.fit(a,b)
+#
+# pred = np.expm1(stack_model.predict(test_X_scaled))
+#
+# result=pd.DataFrame({'Id':test.Id, 'SalePrice':pred})
+# result.to_csv("submission_new.csv",index=False)
 
 """
 xgboost
 """
-# X_scaled
-# y_log
-a = Imputer().fit_transform(X_scaled)
-b = Imputer().fit_transform(y_log.values.reshape(-1,1)).ravel()
-
 import xgboost as xgb
+# param_grid = {
+#         'gamma': [0.1,0.2,0.3,0.5,0.7,1],
+#         'learning_rate': [0.01,0.02,0.03,0.04,0.05],
+#         'max_depth': [1,2,3,4]
+#         }
+# #grid(Lasso()).grid_get(X_scaled,y_log,{'alpha': [0.0004,0.0005,0.0007,0.0009],'max_iter':[10000]})
+# grid(XGBRegressor()).grid_get(X_scaled,y_log,param_grid)
+
+
 xgbm = xgb.XGBRegressor(
-                 colsample_bytree=0.2,
-                 gamma=0.0,
-                 learning_rate=0.01,
+                 gamma=0.1,
+                 learning_rate=0.05,
                  max_depth=4,
                  min_child_weight=1.5,
-                 n_estimators=7200,
-                 reg_alpha=0.9,
-                 reg_lambda=0.6,
-                 subsample=0.2,
+                 n_estimators=4000,
                  seed=42,
                  silent=1)
-xgbm.fit(a, b,
-         early_stopping_rounds=5,
+xgbm.fit(a, b ,
          eval_set=[(a, b)], verbose=False)
 
 predictions = xgbm.predict(test_X_scaled)
 sale_price_xgb = np.expm1(xgbm.predict(test_X_scaled))
 
 print("Xgboost Root Mean Squared Error")
-print(sqrt(mean_squared_error(b, xgbm.predict(X_scaled))))
-
+print(sqrt(mean_squared_error(b, xgbm.predict(a))))
+#
+# score = rmse_cv(xgbm,a,b)
+# print('Xgboost Root')
+# print(score.mean())
 
 result=pd.DataFrame({'Id':test.Id, 'SalePrice':sale_price_xgb})
 result.to_csv("submission_new_xgb.csv",index=False)
 
-
 """
 LightGBM
-"""
-import lightgbm as lgb
-
-lgb_model = lgb.LGBMRegressor(objective='regression',num_leaves=40,
-                              learning_rate=0.004, n_estimators=1000,
-                              bagging_fraction = 0.6,
-                              bagging_freq = 6, feature_fraction = 0.6,
-                              feature_fraction_seed=9, bagging_seed=42,
-                              seed=42, metric = 'rmse' ,verbosity=-1,
-                              min_data_in_leaf =6, min_sum_hessian_in_leaf = 11)
-lgb_model.fit(a, b, early_stopping_rounds=5,
-          eval_set=[(a, b )], verbose=False)
-
-sale_price_lgb = np.expm1(lgb_model.predict(test_X_scaled))
-
-print("lightGBM Root Mean Squared Error")
-print(sqrt(mean_squared_error(b, lgb_model.predict(X_scaled))))
-
-
-result=pd.DataFrame({'Id':test.Id, 'SalePrice':sale_price_lgb})
-result.to_csv("submission_new_lgb.csv",index=False)
+# """
+# import lightgbm as lgb
+#
+# lgb_model = lgb.LGBMRegressor(objective='regression',num_leaves=40,
+#                               learning_rate=0.01, n_estimators=9600,
+#                               bagging_fraction = 0.6,
+#                               bagging_freq = 6, feature_fraction = 0.6,
+#                               feature_fraction_seed=9, bagging_seed=42,
+#                               seed=42, metric = 'rmse' ,verbosity=-1,
+#                               min_data_in_leaf =6, min_sum_hessian_in_leaf = 11)
+# lgb_model.fit(a, b, early_stopping_rounds=5,
+#           eval_set=[(a, b )], verbose=False)
+#
+# sale_price_lgb = np.expm1(lgb_model.predict(test_X_scaled))
+# #
+# # print("lightGBM Root Mean Squared Error")
+# # print(sqrt(mean_squared_error(b, lgb_model.predict(X_scaled))))
+#
+# score = rmse_cv(lgb_model,a,b)
+# print('lightGBM')
+# print(score.mean())
+#
+# result=pd.DataFrame({'Id':test.Id, 'SalePrice':sale_price_lgb})
+# result.to_csv("submission_new_lgb.csv",index=False)
