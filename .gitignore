@@ -109,3 +109,5 @@ venv.bak/
 submission.csv
 */submission.csv
 *.~lock*
+jiwon/
+submission.csv
