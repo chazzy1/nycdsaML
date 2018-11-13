@@ -14,6 +14,14 @@ from sklearn import preprocessing
 from scipy.stats import skew
 from scipy.special import boxcox1p
 
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.linear_model import Ridge
+from sklearn.linear_model import LinearRegression
+from mlxtend.regressor import StackingRegressor
+import xgboost as xgb
+
 pd.options.mode.chained_assignment = None
 
 
@@ -86,7 +94,7 @@ class FeatureDropper(TransformerMixin):
     def fit(self, X, y=None):
         return self
 
-    def transform(self, X):
+    def transform(self, X, columns=[]):
         features_to_drop = []
 
         X.drop(features_to_drop, axis=1, inplace=True)
@@ -117,6 +125,33 @@ class TrainDataSeparator(TransformerMixin):
         train_data = X[:self.train_set_rows]
 
         return train_data
+
+
+def get_best_estimator(train_data, y_train_values, estimator=None, params={}, cv=5):
+    name = estimator.__class__.__name__
+    pipeline = Pipeline(steps=[
+        (name, estimator),
+    ])
+
+    params = [
+        {
+            name+"__"+k: v for k, v in params.items()
+        }
+    ]
+
+    scorer = make_scorer(mean_squared_error, greater_is_better=False)
+
+    grid_search = GridSearchCV(pipeline, param_grid=params, scoring=scorer, cv=cv, verbose=1)
+    grid_search.fit(train_data, y_train_values)
+
+    cvres = grid_search.cv_results_
+
+    cvres = sorted([(sqrt(-score), para) for score, para in zip(cvres['mean_test_score'], cvres['params'])], reverse=False)
+    print("best "+name)
+    print(cvres)
+    return grid_search.best_estimator_
+
+
 
 
 def main():
@@ -166,45 +201,59 @@ def main():
         #('TrainDataSeparator', TrainDataSeparator(train_set_rows=train_set_rows)),
     ])
 
-    transformed_data = transform_pipeline.fit_transform(combined_data)
+    transformed_data = transform_pipeline.transform(combined_data)
     train_data = transformed_data[:train_set_rows]
     predict_data = transformed_data[train_set_rows:]
-
 
     """
     try various regressors
     """
-    pipeline = Pipeline(steps=[
-        ('Lasso', Lasso()),
-    ])
 
-    params = [
-        {
-            'Lasso__alpha': [0.0005, 0.0001],
-            'Lasso__normalize': [True, False]
-        }
-    ]
+    rf = RandomForestRegressor(
+        n_estimators=12,
+        max_depth=3,
+        n_jobs=-1
+    )
 
-    scorer = make_scorer(mean_squared_error, greater_is_better=False)
+    gb = GradientBoostingRegressor(
+        n_estimators=40,
+        max_depth=2
+    )
 
-    grid_search = GridSearchCV(pipeline, param_grid=params, scoring=scorer, cv=5, verbose=1)
-    grid_search.fit(train_data, y_train_values)
+    nn = MLPRegressor(
+        hidden_layer_sizes=(90, 90),
+        alpha=2.75
+    )
 
+    lso = Lasso()
+    rf = get_best_estimator(train_data, y_train_values, estimator=RandomForestRegressor(),
+                            params={"n_estimators": [50, 100], "max_depth": [3]})
+    lso = get_best_estimator(train_data, y_train_values, estimator=Lasso(), params={"alpha": [0.0005, 0.0006], "normalize": [True, False]})
 
-    cvres = grid_search.cv_results_
+    gbm = get_best_estimator(train_data, y_train_values, estimator=xgb.XGBRegressor(),
+                                params={"n_estimators": [1000], "learning_rate": [0.05, 0.01]}
+                             )
 
-    cvres = sorted([(sqrt(-score), para) for score, para in zip(cvres['mean_test_score'], cvres['params'])], reverse=False)
-    print(cvres)
+    model = StackingRegressor(
+        regressors=[rf, gb, nn, lso, xgb],
+        meta_regressor=Lasso(alpha=0.0005)
+    )
 
-    sale_price_lasso = np.expm1(grid_search.best_estimator_.predict(predict_data))
+    # Fit the model on our data
+    model.fit(train_data, y_train_values)
 
+    y_pred = model.predict(train_data)
+    print(sqrt(mean_squared_error(y_train_values, y_pred)))
+
+    # Predict test set
+    ensembled = np.expm1(model.predict(predict_data))
 
     """
     export submission data
     """
     submission = pd.DataFrame({
         "Id": test_set_id,
-        "SalePrice": sale_price_lasso
+        "SalePrice": ensembled
     })
     submission.to_csv('submission.csv', index=False)
 
