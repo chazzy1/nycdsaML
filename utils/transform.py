@@ -110,12 +110,12 @@ def get_best_estimator(train_data, y_train_values, estimator=None, params={}, cv
             name+"__"+k: v for k, v in params.items()
         }
     ]
-
+    from sklearn.model_selection import cross_val_score, KFold
     scorer = make_scorer(mean_squared_error, greater_is_better=False)
-
-    grid_search = GridSearchCV(pipeline, param_grid=params, scoring=scorer, cv=cv, verbose=1, n_jobs=n_jobs)
+    kf = KFold(cv, shuffle=True, random_state=42).get_n_splits(train_data)
+    grid_search = GridSearchCV(pipeline, param_grid=params, scoring=scorer, cv=kf, verbose=1, n_jobs=n_jobs)
     grid_search.fit(train_data, y_train_values)
 
     print("Estimator: {} score: ({}) best params: {}".format(name, sqrt(-grid_search.best_score_), grid_search.best_params_))
-
+    print(grid_search.best_estimator_)
     return grid_search.best_estimator_

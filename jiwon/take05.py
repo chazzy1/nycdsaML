@@ -106,14 +106,13 @@ def main():
 
     svr = get_best_estimator(train_data, y_train_values, estimator=SVR(),
                              params={
-                                 'kernel': ['rbf', 'linear', 'poly'],
-                                 'epsilon': [1, 1e-2, 1e-4],
-                                 'gamma': [0.1, 1, 10],
-                                 'C': [1, 1e-2, 1e3]
+                                 'gamma': [1e-08, 1e-09],
+                                 'C': [100000, 110000],
+                                 'epsilon': [1, 0.1, 0.01]
 
                              },
                             n_jobs=4)
-
+    #C = 100000, gamma = 1e-08
     model=svr
 
     """
