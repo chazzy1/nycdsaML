@@ -24,6 +24,8 @@ import xgboost as xgb
 from utils.transform import *
 pd.options.mode.chained_assignment = None
 
+from sklearn.svm import SVC
+from sklearn.svm import SVR
 
 
 
@@ -40,6 +42,10 @@ def main():
     """
     outliers = train_set[ train_set['GrLivArea'] > 4500 ].index
     print(outliers)
+
+    outliers = [197, 523, 691, 854, 1182, 1298]
+
+
     train_set.drop(outliers, inplace=True)
 
     """
@@ -100,54 +106,15 @@ def main():
     )
 
 
-    from sklearn.svm import SVC
-    from sklearn.svm import SVR
 
 
 
-    svr = get_best_estimator(train_data, y_train_values, estimator=SVR(),
+    svr = get_best_estimator(train_data, y_train_values, estimator=Lasso(),
                              params={
-                                 'gamma': [1e-08, 1e-09],
-                                 'C': [100000, 110000],
-                                 'epsilon': [1, 0.1, 0.01]
-
+                                 'alpha': [0.0004, 0.0005, 0.0006],
                              },
                             n_jobs=4)
-    #C = 100000, gamma = 1e-08
     model=svr
-
-    """
-    Estimator: SVR score: (0.1149444721119083) best params: {'SVR__C': 110000, 'SVR__epsilon': 0.1, 'SVR__gamma': 1e-08}
-Pipeline(memory=None,
-     steps=[('SVR', SVR(C=110000, cache_size=200, coef0=0.0, degree=3, epsilon=0.1, gamma=1e-08,
-  kernel='rbf', max_iter=-1, shrinking=True, tol=0.001, verbose=False))])
-0.10786474107501662
-    
-    """
-
-    """
-    lso = Lasso()
-    rf = get_best_estimator(train_data, y_train_values, estimator=RandomForestRegressor(),
-                            params={"n_estimators": [50, 100], "max_depth": [3]})
-    lso = get_best_estimator(train_data, y_train_values, estimator=Lasso(), params={"alpha": [0.0005, 0.0006], "normalize": [True, False]})
-
-    gbm = get_best_estimator(train_data, y_train_values, estimator=xgb.XGBRegressor(),
-                                params={"n_estimators": [1000], "learning_rate": [0.05, 0.01]}
-                             )
-    """
-
-
-    """
-    model = StackingRegressor(
-        regressors=[rf, gb, nn, lso, gbm],
-        meta_regressor=Lasso(alpha=0.0005)
-    )
-
-    # Fit the model on our data
-    model.fit(train_data, y_train_values)
-    """
-
-
 
     y_pred = model.predict(train_data)
     print(sqrt(mean_squared_error(y_train_values, y_pred)))
