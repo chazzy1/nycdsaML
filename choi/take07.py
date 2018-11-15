@@ -10,6 +10,8 @@ from sklearn.linear_model import Lasso, LassoCV, ElasticNet,Ridge
 from sklearn.svm import SVR, LinearSVR
 from sklearn.ensemble import RandomForestRegressor
 from mlxtend.regressor import StackingRegressor
+from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import cross_val_predict
 import xgboost as xgb
 import lightgbm as lgb
 
@@ -33,8 +35,10 @@ def main():
 
     outliers = train_set[train_set['GrLivArea'] > 4500].index
     print(outliers)
-    outliers = [197, 523, 691, 854, 1182, 1298]
-
+    #outliers = [197, 523, 691, 854, 1182, 1298] 691 , 1182
+    #outliers = [197, 523, 691, 769, 854, 1182, 1298]
+    #outliers = [30, 197, 523, 691, 769, 854, 1182, 1298]
+    outliers = [30, 197, 523, 691, 769, 854, 1182, 1298, 921, 738]
 
     train_set.drop(outliers, inplace=True)
 
@@ -111,14 +115,15 @@ def main():
         'min_samples_leaf': [3, 4, 5],
         'n_estimators': [5,7,10]
     }
-    ls_param = {'alpha': [0.0001,0.0002,0.0003,0.0004,0.0005],
-                'max_iter':[10000],"normalize": [True, False] }
+    ls_param = {'alpha': [ 0.0003, 0.0004, 0.0005,
+           0.0006, 0.0007, 0.0008],
+                'max_iter':[10000],"normalize": [False] }
 
-    elnet_param = {'alpha':[0.0008,0.003,0.004,0.005],
-                   'l1_ratio':[0.08,0.1,0.3],
+    elnet_param = {'alpha':[0.0003, 0.0004, 0.0005],
+                   'l1_ratio':[ 0.9, 0.95, 0.99, 1],
                    'max_iter':[10000]}
 
-    ridge_param = {'alpha': [35, 40, 45, 50, 55, 60, 65, 70, 80, 90]}
+    ridge_param = {'alpha': [10,10.1,10.2,10.3,10.4,10.5]}
 
     svr_param ={ 'gamma': [1e-08, 1e-09],
                  'C': [100000, 110000],
@@ -168,19 +173,58 @@ def main():
     #                          params=gbm_param, n_jobs=4)
     # lbm = get_best_estimator(train_data, y_train_values, estimator=lgb.LGBMRegressor(),
     #                          params=lgb_params, n_jobs=4)
+    #
+    # from xgboost import XGBRegressor
+    # from sklearn.model_selection import KFold, cross_val_score
+    # from sklearn.model_selection import cross_val_predict
+    #
+    def cv_rmse(model):
+        kfolds = KFold(n_splits=5, shuffle=True, random_state=42)
+        rmse = np.sqrt(-cross_val_score(model, train_data, y_train_values,
+                                        scoring="neg_mean_squared_error",
+                                        cv=kfolds))
+        return (rmse)
 
+    # xgb = XGBRegressor(learning_rate=0.01, n_estimators=3460, max_depth=3,
+    #                     min_child_weight=0, gamma=0, subsample=0.7,
+    #                     colsample_bytree=0.7, objective='reg:linear',
+    #                     nthread=4, scale_pos_weight=1, seed=27, reg_alpha=0.00006)
+    #
+    # xgb_fit = xgb.fit(train_data, y_train_values)
+    # print("Xgboost model rmse : ", cv_rmse(xgb_fit).mean())
+    #
+    # model = lgb.LGBMRegressor(objective='regression', num_leaves=5,
+    #                           learning_rate=0.01, n_estimators=4000,
+    #                           max_bin=55, bagging_fraction=0.8,
+    #                           bagging_freq=5, feature_fraction=0.2319,
+    #                           feature_fraction_seed=9, bagging_seed=9,
+    #                           min_data_in_leaf=6, min_sum_hessian_in_leaf=11)
+    #
+    # lgbm_fit = model.fit(train_data, y_train_values)
+    # print("lightgbm model rmse : ", cv_rmse(model).mean())
+    #
+
+
+    """ Stacking """
+
+    print("Randomforest  model rmse : ", cv_rmse(rf).mean())
+    print("elastic model rmse : ", cv_rmse(elnet).mean())
+    print("lasso model rmse : ", cv_rmse(lso).mean())
+    print("ridge model rmse : ", cv_rmse(rdg).mean())
+    print("svr model rmse : ", cv_rmse(svr).mean())
 
     model = StackingRegressor(
        # regressors=[rf, elnet, lso, rdg, gbm, lbm ],
-        regressors=[rf, elnet, lso ,rdg,svr ],
+        regressors=[rf, elnet, lso , rdg, svr  ],
         meta_regressor=Lasso(alpha=0.0005)
     )
 
     # Fit the model on our data
     model.fit(train_data, y_train_values)
+    print("StackingRegressor model rmse : ", cv_rmse(model).mean())
 
-    y_pred = model.predict(train_data)
-    print(sqrt(mean_squared_error(y_train_values, y_pred)))
+    # y_pred = model.predict(train_data)
+    # print(sqrt(mean_squared_error(y_train_values, y_pred)))
 
     # Predict test set
     ensembled = np.expm1(model.predict(predict_data))
@@ -221,7 +265,18 @@ def main():
     print('Ensemble Score: {best_score}'.format(best_score=res['fun']))
     print('Best Weights: {weights}'.format(weights=res['x']))
 
+    ## lasso,enet,xgbm,lgb_model]
+    sale_price_ensemble = ( np.expm1(rf.predict(predict_data)) * res['x'][0] +
+                            np.expm1(elnet.predict(predict_data)) * res['x'][1] +
+                            np.expm1(lso.predict(predict_data)) * res['x'][2] +
+                            np.expm1(rdg.predict(predict_data)) * res['x'][3] +
+                            np.expm1(svr.predict(predict_data)) * res['x'][4] )
 
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice": sale_price_ensemble
+    })
+    submission.to_csv('submission_ensemble_all.csv', index=False)
 
 if __name__== "__main__":
     main()

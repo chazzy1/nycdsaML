@@ -10,10 +10,13 @@ from sklearn.model_selection import cross_val_score, KFold
 
 n_folds = 5
 
-def rmsle_cv(model,X,Y):
-    kf = KFold(n_folds, shuffle=True, random_state=42).get_n_splits(X)
-    rmse = np.sqrt(-cross_val_score(model,
-                                   X,
-                                   Y,
-                                   scoring="neg_mean_squared_error", cv = kf))
-    return rmse
+class rmse_utils():
+    def rmsle_cv(self,model, X, Y):
+        kf = KFold(n_folds, shuffle=True, random_state=42).get_n_splits(X)
+        rmse = np.sqrt(-cross_val_score(model,
+                                       X,
+                                       Y,
+                                       scoring="neg_mean_squared_error", cv = kf))
+        return rmse
+
+
