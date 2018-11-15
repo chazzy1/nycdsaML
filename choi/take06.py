@@ -265,7 +265,7 @@ print('Ensemble Score: {best_score}'.format(best_score = res['fun']))
 print('Best Weights: {weights}'.format(weights = res['x']))
 
 ## lasso,enet,xgbm,lgb_model]
-sale_price_ensemble = (sale_price_lasso*res['x'][0] +
+sale_price_ensemble = ( sale_price_lasso*res['x'][0] +
           sale_price_enet*res['x'][1] +
           sale_price_xgb * res['x'][2] +
           sale_price_lgb * res['x'][3] )

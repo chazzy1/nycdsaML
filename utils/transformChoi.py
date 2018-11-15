@@ -37,14 +37,29 @@ class NaNFixer(TransformerMixin):
         for col in numerical_with_nan:
             X[col].fillna(0, inplace=True)
 
-        X["MSSubClass"] = X["MSSubClass"].astype(str)
+        X['TotalArea'] = X["TotalBsmtSF"] + X["1stFlrSF"] + X["2ndFlrSF"] + X["GarageArea"]
+        X['GrLivArea_OverallQual'] = X['GrLivArea'] * X['OverallQual']
 
         X["TotalHouse"] = X["TotalBsmtSF"] + X["1stFlrSF"] + X["2ndFlrSF"]
         X["Rooms"] = X["FullBath"] + X["TotRmsAbvGrd"]
         X["Bsmt"] = X["BsmtFinSF1"] + X["BsmtFinSF2"] + X["BsmtUnfSF"]
         X['TotBathrooms']  = X['FullBath']  + (X['HalfBath'] * 0.5) + X['BsmtFullBath'] + (X['BsmtHalfBath'] * 0.5)
 
-        X['Age'] = X['YrSold'] - X['YearRemodAdd']
+        X['isNew'] = np.where(X['YrSold'] == X['YearBuilt'], 1, 0)
+
+        # X["MoSold"] = X["MoSold"].astype(str)
+        # X["YrSold"] = X["YrSold"].astype(str)
+        X["isNew"] = X["isNew"].astype(str)
+
+        X["MSSubClass"] = X["MSSubClass"].astype(str)
+        X["OverallCond"] = X["OverallCond"].astype(str)
+
+        # X['isCentralAir'] = np.where(X['CentralAir'] == 'Y', 1, 0)
+        # X['Age'] = X['YrSold'] - X['YearRemodAdd']
+
+        #X["isCentralAir"] = X["isCentralAir"].astype(str)
+
+
         #X['isRemod'] = np.where(X['YearRemodAdd'] == X['YearBuilt'], '0', '1') #0=No Remodeling, 1=Remodeling
         #X['isNew'] = np.where(X['YrSold'] == X['YearBuilt'], 1, 0)
 
@@ -188,7 +203,8 @@ class FeatureDropper(TransformerMixin):
 
         # drop columns over 40% what fill with NAN
         features_to_drop = missing_data[missing_data['Percent'] > 0.4].index
-        features_to_drop = features_to_drop.union(['GarageArea'])
+        #features_to_drop = features_to_drop.union(['GarageArea'])
+        features_to_drop = features_to_drop.union(['Utilities'])
         X.drop(features_to_drop, axis=1, inplace=True)
 
         return X
