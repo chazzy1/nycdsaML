@@ -10,4 +10,10 @@ df_train = pd.read_csv('./data/train.csv')
 """
 check for NaN
 """
-print(df_train.isnull().sum())
+
+nansum = df_train.isnull().sum()
+nansum = pd.DataFrame({'col': nansum.index, 'sum': nansum.values})
+nansum = nansum[nansum['sum'] > 0]
+print(nansum)
+
+

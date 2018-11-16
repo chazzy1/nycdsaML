@@ -37,6 +37,8 @@ def main():
     train_set = pd.read_csv('../data/train.csv')
     test_set = pd.read_csv('../data/test.csv')
 
+    #Without outlier remover, with basic nanRemover 0.12416413124809748
+
     """
     Remove Outliers
     """
@@ -47,6 +49,8 @@ def main():
 
 
     train_set.drop(outliers, inplace=True)
+
+    #With outlier remover 0.10970218665126451
 
     """
     fix salePrice skewness
@@ -74,12 +78,18 @@ def main():
     create data transform pipeline
     """
     transform_pipeline = Pipeline(steps=[
-        ('NaNFixer', NaNFixer()),
+        ('OutlierRemover', OutlierRemover()),
+        ('NaNImputer', NaNImputer()),
+        ('NaNRemover', NaNRemover()),
+        ('AdditionalFeatureGenerator', AdditionalFeatureGenerator()),
+        ('TypeTransformer', TypeTransformer()),
+        ('ErrorImputer', ErrorImputer()),
         ('SkewFixer', SkewFixer()),
         ('Scaler', Scaler()),
         ('FeatureDropper', FeatureDropper()),
         ('Dummyfier', Dummyfier()),
     ])
+
 
     transformed_data = transform_pipeline.transform(combined_data)
     train_data = transformed_data[:train_set_rows]
@@ -111,7 +121,7 @@ def main():
 
     svr = get_best_estimator(train_data, y_train_values, estimator=Lasso(),
                              params={
-                                 'alpha': [0.0004, 0.0005, 0.0006],
+                                 'alpha': [0.00051, 0.0005, 0.00049, 0.00048, 0.00047],
                              },
                             n_jobs=4)
     model=svr

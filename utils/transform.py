@@ -15,7 +15,70 @@ from scipy.stats import skew
 from scipy.special import boxcox1p
 
 
-class NaNFixer(TransformerMixin):
+class OutlierRemover(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+
+        return X
+
+class NaNImputer(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X.loc[(X['PoolArea'] > 0) & (X['PoolQC'].isnull()), 'PoolQC'] = 'TA'
+
+        X['PoolQC'].fillna('NA', inplace=True)
+        X['MiscFeature'].fillna('NA', inplace=True)
+        X['Alley'].fillna('NA', inplace=True)
+        X['Fence'].fillna('NA', inplace=True)
+        X['FireplaceQu'].fillna('NA', inplace=True)
+
+        #X['LotFrontage'].fillna(0, inplace=True) # NaNRemover will take care of this.
+
+        X.loc[X['GarageType'].isnull(), ['GarageFinish', 'GarageQual', 'GarageCond', 'GarageYrBlt', 'GarageType',
+                                         'GarageCars', 'GarageArea']] \
+            = ['NA', 'NA', 'NA', 0, 'NA', 0, 0]
+
+        X.loc[(X['GarageCond'].isnull()) & (X['OverallCond'] == 8),
+              ['GarageFinish', 'GarageQual', 'GarageCond', 'GarageYrBlt']] \
+            = [
+            X[X['OverallCond'] == 8]['GarageFinish'].mode()[0],
+            X[X['OverallCond'] == 8]['GarageQual'].mode()[0],
+            X[X['OverallCond'] == 8]['GarageCond'].mode()[0],
+            1910,
+        ]
+
+        X.loc[(X['GarageCond'].isnull()) & (X['OverallCond'] == 6),
+              ['GarageFinish', 'GarageQual', 'GarageCond', 'GarageYrBlt', 'GarageCars', 'GarageArea']] \
+            = [
+            X[X['OverallCond'] == 6]['GarageFinish'].mode()[0],
+            X[X['OverallCond'] == 6]['GarageQual'].mode()[0],
+            X[X['OverallCond'] == 6]['GarageCond'].mode()[0],
+            1923,
+            X[X['OverallCond'] == 6]['GarageCars'].median(),
+            X[X['OverallCond'] == 8]['GarageArea'].median()
+        ]
+
+        X['BsmtHalfBath'].fillna('0', inplace=True)
+
+        X['MasVnrType'].fillna('NA', inplace=True)
+
+        X.loc[(X['MSZoning'].isnull()) & (X['MSSubClass'] == 20), 'MSZoning'] = 'RL'
+        X.loc[(X['MSZoning'].isnull()) & (X['MSSubClass'] == 30), 'MSZoning'] = 'RM'
+        X.loc[(X['MSZoning'].isnull()) & (X['MSSubClass'] == 70), 'MSZoning'] = 'RM'
+
+        X['Functional'].fillna('Typ', inplace=True)
+
+        X['KitchenQual'].fillna('TA', inplace=True)
+
+        return X
+
+
+
+class NaNRemover(TransformerMixin):
     def fit(self, X, y=None):
         return self
 
@@ -29,6 +92,46 @@ class NaNFixer(TransformerMixin):
 
         for col in numerical_with_nan:
             X[col].fillna(0, inplace=True)
+
+        return X
+
+
+class AdditionalFeatureGenerator(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X['TotalLivingSpace'] = (X['BsmtFinSF1'] + X['BsmtFinSF2'] + X['1stFlrSF'] + X['2ndFlrSF'])
+        X['Total_Bathrooms'] = (X['BsmtFullBath'].apply(lambda x: float(x))) +\
+                               (X['BsmtHalfBath'].apply(lambda x: float(x)*0.4)) +\
+                               (X['FullBath'].apply(lambda x: float(x))) + \
+                               (X['HalfBath'].apply(lambda x: float(x)*0.4))
+
+        X['has2ndfloor'] = X['2ndFlrSF'].apply(lambda x: 'Y' if x > 0 else 'N')
+
+        X['hasbsmt'] = X['TotalBsmtSF'].apply(lambda x: 'Y' if x > 0 else 'N')
+        features_to_drop = ['BsmtFinSF1','BsmtFinSF2','1stFlrSF','2ndFlrSF','FullBath',
+                            'HalfBath','BsmtFullBath','BsmtHalfBath']
+        X.drop(features_to_drop, axis=1, inplace=True)
+        return X
+
+
+
+class TypeTransformer(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X.update(X['MSSubClass'].astype('str'))
+
+        return X
+
+class ErrorImputer(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X.loc[X['GarageYrBlt'] == 2207, 'GarageYrBlt'] = 2007
 
         return X
 
