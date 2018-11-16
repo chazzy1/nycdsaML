@@ -22,37 +22,50 @@ class NaNFixer(TransformerMixin):
 
     def transform(self, X):
 
-        X["LotAreaCut"] = pd.qcut(X.LotArea, 10)
-        X['LotFrontage'] = X.groupby(['LotAreaCut', 'Neighborhood'])['LotFrontage'].transform(
-            lambda x: x.fillna(x.median()))
+        #Fix wrong data
 
-        X.drop('LotAreaCut', axis=1, inplace=True)
+        pIdx = X[(X['PoolQC'].isnull()) & (X['PoolArea'] > 0)].index
+        X['PoolQC'].loc[pIdx] = X['PoolQC'].mode()[0]
+        X['MSZoning'] = X.groupby('MSSubClass')['MSZoning'].transform(lambda x: x.fillna(x.mode()[0]))
+
+        gIdx = X[X['GarageYrBlt'] == 2207].index
+        X['GarageYrBlt'].loc[gIdx] = 2007
+
+        # X["LotAreaCut"] = pd.qcut(X.LotArea, 10)
+        # X['LotFrontage'] = X.groupby(['LotAreaCut', 'Neighborhood'])['LotFrontage'].transform(
+        #     lambda x: x.fillna(x.median()))
+        #
+        # X.drop('LotAreaCut', axis=1, inplace=True)
         categorical_with_nan = get_columns_with_nan(X[get_categorical_columns(X)])
+
+        categorical_with_nan.remove('PoolQC')
 
         for col in categorical_with_nan:
             X[col].fillna(X[col].mode()[0], inplace=True)
 
         numerical_with_nan = get_columns_with_nan(X[get_numeric_columns(X)])
 
+        print(numerical_with_nan)
         for col in numerical_with_nan:
-            X[col].fillna(0, inplace=True)
+            X[col].fillna(X[col].median(), inplace=True)
 
-        X['TotalArea'] = X["TotalBsmtSF"] + X["1stFlrSF"] + X["2ndFlrSF"] + X["GarageArea"]
-        X['GrLivArea_OverallQual'] = X['GrLivArea'] * X['OverallQual']
 
-        X["TotalHouse"] = X["TotalBsmtSF"] + X["1stFlrSF"] + X["2ndFlrSF"]
-        X["Rooms"] = X["FullBath"] + X["TotRmsAbvGrd"]
-        X["Bsmt"] = X["BsmtFinSF1"] + X["BsmtFinSF2"] + X["BsmtUnfSF"]
-        X['TotBathrooms']  = X['FullBath']  + (X['HalfBath'] * 0.5) + X['BsmtFullBath'] + (X['BsmtHalfBath'] * 0.5)
-
-        X['isNew'] = np.where(X['YrSold'] == X['YearBuilt'], 1, 0)
-
+        # X['TotalArea'] = X["TotalBsmtSF"] + X["1stFlrSF"] + X["2ndFlrSF"] + X["GarageArea"]
+        # X['GrLivArea_OverallQual'] = X['GrLivArea'] * X['OverallQual']
+        #
+        # X["TotalHouse"] = X["TotalBsmtSF"] + X["1stFlrSF"] + X["2ndFlrSF"]
+        # X["Rooms"] = X["FullBath"] + X["TotRmsAbvGrd"]
+        # X["Bsmt"] = X["BsmtFinSF1"] + X["BsmtFinSF2"] + X["BsmtUnfSF"]
+        # X['TotBathrooms']  = X['FullBath']  + (X['HalfBath'] * 0.5) + X['BsmtFullBath'] + (X['BsmtHalfBath'] * 0.5)
+        #
+        # X['isNew'] = np.where(X['YrSold'] == X['YearBuilt'], 1, 0)
+        #
         # X["MoSold"] = X["MoSold"].astype(str)
         # X["YrSold"] = X["YrSold"].astype(str)
-        X["isNew"] = X["isNew"].astype(str)
-
-        X["MSSubClass"] = X["MSSubClass"].astype(str)
-        X["OverallCond"] = X["OverallCond"].astype(str)
+        # X["isNew"] = X["isNew"].astype(str)
+        #
+        # X["MSSubClass"] = X["MSSubClass"].astype(str)
+        # X["OverallCond"] = X["OverallCond"].astype(str)
 
         # X['isCentralAir'] = np.where(X['CentralAir'] == 'Y', 1, 0)
         # X['Age'] = X['YrSold'] - X['YearRemodAdd']
@@ -82,7 +95,7 @@ class NaNFixer(TransformerMixin):
         # for col in NumStr:
         #     X[col] = X[col].astype(str)
         #
-        # X["MSSubClass"] = X.MSSubClass.map({'180': 1,
+        # X["oMSSubClass"] = X.MSSubClass.map({'180': 1,
         #                                      '30': 2, '45': 2,
         #                                      '190': 3, '50': 3, '90': 3,
         #                                      '85': 4, '40': 4, '160': 4,
@@ -202,10 +215,11 @@ class FeatureDropper(TransformerMixin):
         missing_data = pd.concat([total, percent], axis=1, keys=['Total', 'Percent'])
 
         # drop columns over 40% what fill with NAN
-        features_to_drop = missing_data[missing_data['Percent'] > 0.4].index
+        #features_to_drop = missing_data[missing_data['Percent'] > 0.4].index
         #features_to_drop = features_to_drop.union(['GarageArea'])
-        features_to_drop = features_to_drop.union(['Utilities'])
-        X.drop(features_to_drop, axis=1, inplace=True)
+        #features_to_drop = (['Utilities'])
+        # X.drop(features_to_drop, axis=1, inplace=True)
+        X.drop(['Utilities', 'Street'], axis=1)
 
         return X
 

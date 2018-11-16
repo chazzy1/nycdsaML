@@ -33,12 +33,10 @@ def main():
     """
     #outliers = train_set[(train_set['GrLivArea'] > 4000) & (train_set['SalePrice'] < 300000)].index
 
-    outliers = train_set[train_set['GrLivArea'] > 4500].index
-    print(outliers)
-    #outliers = [197, 523, 691, 854, 1182, 1298] 691 , 1182
+    outliers = [197, 523, 691, 854, 1182, 1298]
     #outliers = [197, 523, 691, 769, 854, 1182, 1298]
     #outliers = [30, 197, 523, 691, 769, 854, 1182, 1298]
-    outliers = [30, 197, 523, 691, 769, 854, 1182, 1298, 921, 738]
+    # outliers = [30, 197, 523, 691, 769, 854, 1182, 1298, 921, 738]
 
     train_set.drop(outliers, inplace=True)
 
@@ -61,7 +59,7 @@ def main():
     test_set.drop('Id', axis=1, inplace=True)
     train_set.drop('SalePrice', axis=1, inplace=True)
 
-    combined_data = pd.concat((train_set, test_set))
+    combined_data = pd.concat((train_set, test_set),ignore_index=True)
 
     # total = combined_data.isnull().sum().sort_values(ascending=False)
     # percent = (combined_data.isnull().sum() / combined_data.isnull().count()).sort_values(ascending=False)
@@ -93,8 +91,9 @@ def main():
     train_data = transformed_data[:train_set_rows]
     predict_data = transformed_data[train_set_rows:]
 
+
     # from sklearn.decomposition import PCA, KernelPCA
-    # pca = PCA(n_components=135)
+    # pca = PCA(n_components=100)
     # train_data = pca.fit_transform(train_data)
     # predict_data = pca.transform(predict_data)
 
@@ -127,7 +126,8 @@ def main():
 
     svr_param ={ 'gamma': [1e-08, 1e-09],
                  'C': [100000, 110000],
-                 'epsilon': [1, 0.1, 0.01]
+                 'epsilon': [1, 0.1, 0.01] ,
+                 'kernel' : ['poly','rbf']
                  }
 
     gbm_param = {"n_estimators": [1000],
@@ -216,7 +216,8 @@ def main():
     model = StackingRegressor(
        # regressors=[rf, elnet, lso, rdg, gbm, lbm ],
         regressors=[rf, elnet, lso , rdg, svr  ],
-        meta_regressor=Lasso(alpha=0.0005)
+        #meta_regressor=Lasso(alpha=0.0005)
+        meta_regressor=SVR(kernel='rbf')
     )
 
     # Fit the model on our data
