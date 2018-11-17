@@ -28,6 +28,14 @@ class NaNFixer(TransformerMixin):
         X['PoolQC'].loc[pIdx] = X['PoolQC'].mode()[0]
         X['MSZoning'] = X.groupby('MSSubClass')['MSZoning'].transform(lambda x: x.fillna(x.mode()[0]))
 
+        # X['MiscFeature'].fillna('None')
+        X['Alley'].fillna('None')
+
+        # X['hasfireplace'] = X['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+        # X["hasfireplace"] = X["hasfireplace"].astype(str)
+        # X.drop('Fireplaces', axis=1, inplace=True)
+
+
         gIdx = X[X['GarageYrBlt'] == 2207].index
         X['GarageYrBlt'].loc[gIdx] = 2007
 
@@ -39,6 +47,8 @@ class NaNFixer(TransformerMixin):
         categorical_with_nan = get_columns_with_nan(X[get_categorical_columns(X)])
 
         categorical_with_nan.remove('PoolQC')
+        # categorical_with_nan.remove('MiscFeature')
+        # categorical_with_nan.remove('Alley')
 
         for col in categorical_with_nan:
             X[col].fillna(X[col].mode()[0], inplace=True)
