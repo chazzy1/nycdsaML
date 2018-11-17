@@ -104,7 +104,6 @@ def main():
     """
 
     rf_param = {
-        # 'bootstrap': [True],
         'max_depth': [3, 4, 5],
         'min_samples_leaf': [3, 4, 5],
         'n_estimators': [5, 7, 10]
@@ -130,7 +129,6 @@ def main():
                                params=elnet_param, n_jobs=4)
     lso = get_best_estimator(train_data, y_train_values, estimator=Lasso(),
                              params=ls_param, n_jobs=4)
-
     rdg = get_best_estimator(train_data, y_train_values, estimator=Ridge(),
                              params=ridge_param, n_jobs=4)
     svr = get_best_estimator(train_data, y_train_values, estimator=SVR(),

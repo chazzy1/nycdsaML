@@ -161,10 +161,10 @@ def main():
                              params=svr_param, n_jobs=4)
 
 
-    # gbm = get_best_estimator(train_data, y_train_values, estimator=xgb.XGBRegressor(),
-    #                          params=gbm_param, n_jobs=4)
-    # lbm = get_best_estimator(train_data, y_train_values, estimator=lgb.LGBMRegressor(),
-    #                          params=lgb_params, n_jobs=4)
+    gbm = get_best_estimator(train_data, y_train_values, estimator=xgb.XGBRegressor(),
+                             params=gbm_param, n_jobs=4)
+    lbm = get_best_estimator(train_data, y_train_values, estimator=lgb.LGBMRegressor(),
+                             params=lgb_params, n_jobs=4)
 
     def cv_rmse(model):
         kfolds = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -173,13 +173,56 @@ def main():
                                         cv=kfolds))
         return (rmse)
 
-    print("Randomforest  model rmse : ", cv_rmse(rf).mean())
-    print("elastic model rmse : ", cv_rmse(elnet).mean())
-    print("lasso model rmse : ", cv_rmse(lso).mean())
-    print("ridge model rmse : ", cv_rmse(rdg).mean())
-    print("svr model rmse : ", cv_rmse(svr).mean())
+    # print("Randomforest  model rmse : ", cv_rmse(rf).mean())
+    # print("elastic model rmse : ", cv_rmse(elnet).mean())
+    # print("lasso model rmse : ", cv_rmse(lso).mean())
+    # print("ridge model rmse : ", cv_rmse(rdg).mean())
+    # print("svr model rmse : ", cv_rmse(svr).mean())
     # print("xgboost model rmse : ", cv_rmse(gbm).mean())
     # print("lightgbm model rmse : ", cv_rmse(lbm).mean())
+
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice":  np.expm1(rf.predict(predict_data))
+    })
+    submission.to_csv('submission_rf.csv', index=False)
+
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice": np.expm1(elnet.predict(predict_data))
+    })
+    submission.to_csv('submission_elnet.csv', index=False)
+
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice": np.expm1(lso.predict(predict_data))
+    })
+    submission.to_csv('submission_lso.csv', index=False)
+
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice": np.expm1(rdg.predict(predict_data))
+    })
+    submission.to_csv('submission_rdg.csv', index=False)
+
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice": np.expm1(svr.predict(predict_data))
+    })
+    submission.to_csv('submission_svr.csv', index=False)
+
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice": np.expm1(gbm.predict(predict_data))
+    })
+    submission.to_csv('submission_gbm.csv', index=False)
+
+    submission = pd.DataFrame({
+        "Id": test_set_id,
+        "SalePrice": np.expm1(lbm.predict(predict_data))
+    })
+    submission.to_csv('submission_lbm.csv', index=False)
+
 
     model = StackingRegressor(
         regressors=[rf, elnet, lso, rdg, svr ],
@@ -203,11 +246,11 @@ def main():
         "Id": test_set_id,
         "SalePrice": ensembled
     })
-    submission.to_csv('submission_stack_boost.csv', index=False)
+    submission.to_csv('submission_stacking.csv', index=False)
 
     """" Ensemble Weights """
     from scipy.optimize import minimize
-    regressors = [rf, elnet, lso, rdg, svr ]
+    regressors = [rf, elnet, lso, rdg, svr ,gbm,lbm ]
 
     predictions = []
     for clf in regressors:
@@ -236,15 +279,15 @@ def main():
                            np.expm1(elnet.predict(predict_data)) * res['x'][1] +
                            np.expm1(lso.predict(predict_data)) * res['x'][2] +
                            np.expm1(rdg.predict(predict_data)) * res['x'][3] +
-                           np.expm1(svr.predict(predict_data)) * res['x'][4])
-                           # np.expm1(gbm.predict(predict_data)) * res['x'][5] +
-                           # np.expm1(l.predict(predict_data)) * res['x'][6])
+                           np.expm1(svr.predict(predict_data)) * res['x'][4] +
+                           np.expm1(gbm.predict(predict_data)) * res['x'][5] +
+                           np.expm1(lgb.predict(predict_data)) * res['x'][6])
 
     submission = pd.DataFrame({
         "Id": test_set_id,
         "SalePrice": sale_price_ensemble
     })
-    submission.to_csv('submission_stack_average.csv', index=False)
+    submission.to_csv('submission_average.csv', index=False)
 
 
 
