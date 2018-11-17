@@ -49,18 +49,16 @@ def main():
 
     outliers = [197, 523, 691, 854, 1182, 1298]
     print(outliers)
-    """
-    z = np.abs(zscore(get_numeric_columns(train_set)))
-    row, col = np.where(z > 5)
+
+    z = np.abs(zscore(train_set[get_numeric_columns(train_set)]))
+    row, col = np.where(z > 4)
     df = pd.DataFrame({"row": row, "col": col})
     rows_count = df.groupby(['row']).count()
 
-    outlier_index = rows_count[rows_count.col > 2]
-    print(outlier_index)
+    outliers = rows_count[rows_count.col > 2].index
+    print(outliers)
     train_set.drop(outliers, inplace=True)
-    """
-    
-    #With outlier remover 0.10970218665126451
+
 
     """
     fix salePrice skewness

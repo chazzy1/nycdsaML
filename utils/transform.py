@@ -20,7 +20,8 @@ class OutlierRemover(TransformerMixin):
         return self
 
     def transform(self, X):
-
+        # not implemented for now.
+        # will be taken care of by individual main code.
         return X
 
 class NaNImputer(TransformerMixin):
@@ -110,7 +111,6 @@ class AdditionalFeatureGenerator(TransformerMixin):
                             'HalfBath','BsmtFullBath','BsmtHalfBath']
         X.drop(features_to_drop, axis=1, inplace=True)
         return X
-
 
 
 class TypeTransformer(TransformerMixin):
