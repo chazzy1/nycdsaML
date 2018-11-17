@@ -137,7 +137,7 @@ def main():
                              params=svr_param, n_jobs=4)
 
     def cv_rmse(model):
-        kfolds = KFold(n_splits=5, shuffle=True, random_state=42)
+        kfolds = KFold(n_splits=5, shuffle=False, random_state=42)
         rmse = np.sqrt(-cross_val_score(model, train_data, y_train_values,
                                         scoring="neg_mean_squared_error",
                                         cv=kfolds))
