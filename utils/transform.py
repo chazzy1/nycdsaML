@@ -13,7 +13,7 @@ from sklearn import preprocessing
 
 from scipy.stats import skew
 from scipy.special import boxcox1p
-
+from scipy.stats import boxcox_normmax
 
 class OutlierRemover(TransformerMixin):
     def fit(self, X, y=None):
@@ -140,11 +140,12 @@ class SkewFixer(TransformerMixin):
         numeric_columns = get_numeric_columns(X)
 
         skewed_columns = X[numeric_columns].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
-        skewed_columns = skewed_columns[abs(skewed_columns) > 0.75]
+        skewed_columns = skewed_columns[abs(skewed_columns) > 0.5]
         skewed_features = skewed_columns.index
 
         for feat in skewed_features:
-            X[feat] = boxcox1p(X[feat], 0.15)
+            #raise ValueError("Data must be positive.") occurs. 0인거 같음. 그냥 +1 ?
+            X[feat] = boxcox1p(X[feat], boxcox_normmax(X[feat]+1))
 
         return X
 
@@ -211,7 +212,7 @@ def get_best_estimator(train_data, y_train_values, estimator=None, params={}, cv
     ]
     from sklearn.model_selection import cross_val_score, KFold
     scorer = make_scorer(mean_squared_error, greater_is_better=False)
-    kf = KFold(cv, shuffle=False, random_state=42).get_n_splits(train_data)
+    kf = KFold(cv, shuffle=True, random_state=42).get_n_splits(train_data)
     grid_search = GridSearchCV(pipeline, param_grid=params, scoring=scorer, cv=kf, verbose=1, n_jobs=n_jobs)
     grid_search.fit(train_data, y_train_values)
 
