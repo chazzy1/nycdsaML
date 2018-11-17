@@ -157,6 +157,7 @@ class Scaler(TransformerMixin):
     def transform(self, X):
         numeric_columns = get_numeric_columns(X)
         scaler = preprocessing.StandardScaler()
+        #scaler = preprocessing.RobustScaler()
         X[numeric_columns] = scaler.fit_transform(X[numeric_columns])
 
         return X
