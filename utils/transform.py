@@ -84,15 +84,11 @@ class NaNRemover(TransformerMixin):
 
     def transform(self, X):
         categorical_with_nan = get_columns_with_nan(X[get_categorical_columns(X)])
-
         for col in categorical_with_nan:
             X[col].fillna(X[col].mode()[0], inplace=True)
-
         numerical_with_nan = get_columns_with_nan(X[get_numeric_columns(X)])
-
         for col in numerical_with_nan:
             X[col].fillna(0, inplace=True)
-
         return X
 
 
