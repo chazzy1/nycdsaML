@@ -22,7 +22,6 @@ from sklearn.linear_model import Ridge
 from sklearn.linear_model import LinearRegression
 from mlxtend.regressor import StackingRegressor
 import xgboost as xgb
-import lightgbm as lgb
 from utils.transform import *
 pd.options.mode.chained_assignment = None
 
@@ -32,6 +31,7 @@ from sklearn.svm import SVR
 import seaborn as sns
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
+
 
 
 def main():
@@ -123,31 +123,6 @@ def main():
                  'C': [100000, 110000],
                  'epsilon': [1, 0.1, 0.01]
                  }
-    gbm_param = {"n_estimators": [1000],
-                 'min_child_weight': [1, 5],
-                 'gamma': [0.1, 0.2],
-                 'subsample': [0.6],
-                 'colsample_bytree': [0.6],
-                 'max_depth': [3, 4],
-                 'eta': [0.01],
-                 'eval_metric': ['mae']
-                 }
-
-    lgb_params = {
-        'objective': ['regression'],
-        'num_leaves': [255],
-        'max_depth': [8],
-        'bagging_seed': [3],
-        'boosting_type': ['gbdt']
-        ,
-        'min_sum_hessian_in_leaf': [100],
-        'learning_rate': np.linspace(0.05, 0.1, 2),
-        'bagging_fraction': np.linspace(0.7, 0.9, 2),
-        'bagging_freq': np.linspace(30, 50, 3, dtype='int'),
-        'max_bin': [15, 63],
-    }
-
-
 
     rf = get_best_estimator(train_data, y_train_values, estimator=RandomForestRegressor(),
                             params=rf_param, n_jobs=4)
@@ -155,19 +130,14 @@ def main():
                                params=elnet_param, n_jobs=4)
     lso = get_best_estimator(train_data, y_train_values, estimator=Lasso(),
                              params=ls_param, n_jobs=4)
+
     rdg = get_best_estimator(train_data, y_train_values, estimator=Ridge(),
                              params=ridge_param, n_jobs=4)
     svr = get_best_estimator(train_data, y_train_values, estimator=SVR(),
                              params=svr_param, n_jobs=4)
 
-
-    # gbm = get_best_estimator(train_data, y_train_values, estimator=xgb.XGBRegressor(),
-    #                          params=gbm_param, n_jobs=4)
-    # lbm = get_best_estimator(train_data, y_train_values, estimator=lgb.LGBMRegressor(),
-    #                          params=lgb_params, n_jobs=4)
-
     def cv_rmse(model):
-        kfolds = KFold(n_splits=5, shuffle=True, random_state=42)
+        kfolds = KFold(n_splits=5, shuffle=False, random_state=42)
         rmse = np.sqrt(-cross_val_score(model, train_data, y_train_values,
                                         scoring="neg_mean_squared_error",
                                         cv=kfolds))
@@ -178,12 +148,11 @@ def main():
     print("lasso model rmse : ", cv_rmse(lso).mean())
     print("ridge model rmse : ", cv_rmse(rdg).mean())
     print("svr model rmse : ", cv_rmse(svr).mean())
-    # print("xgboost model rmse : ", cv_rmse(gbm).mean())
-    # print("lightgbm model rmse : ", cv_rmse(lbm).mean())
 
     model = StackingRegressor(
-        regressors=[rf, elnet, lso, rdg, svr ],
+        regressors=[rf, elnet, lso, rdg, svr],
         meta_regressor=Lasso(alpha=0.0005)
+        # meta_regressor=SVR(kernel='rbf')
     )
 
     # Fit the model on our data
@@ -196,6 +165,10 @@ def main():
     # Predict test set
     ensembled = np.expm1(model.predict(predict_data))
 
+    # sns.scatterplot(np.expm1(rf.predict(train_data),np.expm1(y_train_values)))
+    # plt.show()
+    # ensembled = np.expm1(rf.predict(predict_data))
+
     """
     export submission data
     """
@@ -203,50 +176,7 @@ def main():
         "Id": test_set_id,
         "SalePrice": ensembled
     })
-    submission.to_csv('submission_stack_boost.csv', index=False)
-
-    """" Ensemble Weights """
-    from scipy.optimize import minimize
-    regressors = [rf, elnet, lso, rdg, svr ]
-
-    predictions = []
-    for clf in regressors:
-        predictions.append(clf.predict(train_data))  # listing all our predictions
-
-    def mse_func(weights):
-        # scipy minimize will pass the weights as a numpy array
-        final_prediction = 0
-        for weight, prediction in zip(weights, predictions):
-            final_prediction += weight * prediction
-        return mean_squared_error(y_train_values, final_prediction)
-
-    starting_values = [0.5] * len(predictions)  # minimize need a starting value
-    bounds = [(0, 1)] * len(predictions)  # weights are bound between 0 and 1
-    res = minimize(mse_func,
-                   starting_values,
-                   bounds=bounds,
-                   method='SLSQP'
-                   )
-    print('Result Assessment: {message_algo}'.format(message_algo=res['message']))
-    print('Ensemble Score: {best_score}'.format(best_score=res['fun']))
-    print('Best Weights: {weights}'.format(weights=res['x']))
-
-    ##  All
-    sale_price_ensemble = (np.expm1(rf.predict(predict_data)) * res['x'][0] +
-                           np.expm1(elnet.predict(predict_data)) * res['x'][1] +
-                           np.expm1(lso.predict(predict_data)) * res['x'][2] +
-                           np.expm1(rdg.predict(predict_data)) * res['x'][3] +
-                           np.expm1(svr.predict(predict_data)) * res['x'][4])
-                           # np.expm1(gbm.predict(predict_data)) * res['x'][5] +
-                           # np.expm1(l.predict(predict_data)) * res['x'][6])
-
-    submission = pd.DataFrame({
-        "Id": test_set_id,
-        "SalePrice": sale_price_ensemble
-    })
-    submission.to_csv('submission_stack_average.csv', index=False)
-
-
+    submission.to_csv('submission_jiwon.csv', index=False)
 
 if __name__== "__main__":
     main()
