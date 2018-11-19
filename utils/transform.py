@@ -5,7 +5,7 @@ import pandas as pd
 from math import sqrt
 from utils.utils import *
 from sklearn.pipeline import Pipeline
-from sklearn.base import TransformerMixin
+from sklearn.bxgboostase import TransformerMixin
 
 from sklearn.metrics import mean_squared_error, make_scorer
 from sklearn.model_selection import GridSearchCV
