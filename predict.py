@@ -13,6 +13,7 @@ pd.options.mode.chained_assignment = None
 from sklearn.svm import SVR
 
 
+
 def main():
     """
     load data
@@ -65,8 +66,9 @@ def main():
         ('ErrorImputer', ErrorImputer()),
         ('SkewFixer', SkewFixer()),
         ('Scaler', Scaler()),
-        ('FeatureDropper', FeatureDropper()),
+
         ('Dummyfier', Dummyfier()),
+        ('FeatureDropper', FeatureDropper()),
     ])
 
 
@@ -114,7 +116,8 @@ def main():
 
     model = StackingRegressor(
         regressors=[rf, elnet, lso, rdg, svr],
-        meta_regressor=Lasso(alpha=0.0005)
+        meta_regressor=SVR(kernel='rbf'),
+        #meta_regressor=Lasso(alpha=0.0005)
     )
 
     model.fit(train_data, y_train_values)

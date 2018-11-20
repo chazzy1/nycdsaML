@@ -4,8 +4,8 @@ sys.path.append('../')
 import pandas as pd
 from math import sqrt
 from utils.utils import *
-from sklearn.pipeline import Pipeline
-from sklearn.bxgboostase import TransformerMixin
+from sklearn.pipeline import Pipeline, TransformerMixin
+#from sklearn.bxgboostase import TransformerMixin
 
 from sklearn.metrics import mean_squared_error, make_scorer
 from sklearn.model_selection import GridSearchCV
@@ -168,7 +168,28 @@ class FeatureDropper(TransformerMixin):
         return self
 
     def transform(self, X, columns=[]):
-        features_to_drop = []
+        features_to_drop = [
+            'MSZoning_C (all)',
+            'MSSubClass_150',
+            'Utilities_NoSeWa',
+            'Condition2_RRAe',
+            'Condition2_RRAn',
+            'Condition2_RRNn',
+            'RoofMatl_Membran',
+            'RoofMatl_Metal',
+            'RoofMatl_Roll',
+            'Exterior1st_AsphShn',
+            'Exterior1st_CBlock',
+            'Exterior1st_ImStucc',
+            'Exterior2nd_Other',
+            'Heating_Floor',
+            'Electrical_Mix',
+            'MiscFeature_TenC'
+        ]
+
+        #print(X.columns)
+        #X.to_csv('modified_data.csv', index=False)
+
 
         X.drop(features_to_drop, axis=1, inplace=True)
 
