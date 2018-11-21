@@ -119,7 +119,8 @@ class TypeTransformer(TransformerMixin):
 
     def transform(self, X):
         X.update(X['MSSubClass'].astype('str'))
-
+        #X['YrSold'] = X['YrSold'].astype(str)
+        #X['MoSold'] = X['MoSold'].astype(str)
         return X
 
 class ErrorImputer(TransformerMixin):
@@ -163,14 +164,64 @@ class Scaler(TransformerMixin):
         return X
 
 
+class OrdinalConverter(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+
+        ordinal_columns = [
+            "ExterCond",
+            "ExterQual",
+            "BsmtQual",
+            "BsmtCond",
+            "BsmtExposure",
+            "HeatingQC",
+            "KitchenQual",
+            "Functional",
+            "GarageCond",
+
+        ]
+
+        ordinals = {
+            "ExterCond": {"Ex": 4, "Gd": 3, "TA": 2, "Fa": 1, "Po": 0},
+            "ExterQual": {"Ex": 4, "Gd": 3, "TA": 2, "Fa": 1, "Po": 0},
+            "BsmtQual": {"Ex": 5, "Gd": 4, "TA": 3, "Fa": 2, "Po": 1, "NA": 0},
+            "BsmtCond": {"Ex": 5, "Gd": 4, "TA": 3, "Fa": 2, "Po": 1, "NA": 0},
+            "BsmtExposure": {"Gd": 4, "Av": 3, "Mn": 2, "No": 1, "NA": 0},
+            "HeatingQC": {"Ex": 4, "Gd": 3, "TA": 2, "Fa": 1, "Po": 0},
+            "KitchenQual": {"Ex": 4, "Gd": 3, "TA": 2, "Fa": 1, "Po": 0},
+            "Functional": {"Typ": 7, "Min1": 6, "Min2": 5, "Mod": 4, "Maj1": 3, "Maj2": 2, "Sev": 1, "Sal": 0},
+            "GarageCond": {"Ex": 5, "Gd": 4, "TA": 3, "Fa": 2, "Po": 1, "NA": 0},
+        }
+
+        X.replace(ordinals, inplace=True)
+
+        return X
+
+
 class FeatureDropper(TransformerMixin):
     def fit(self, X, y=None):
         return self
 
     def transform(self, X, columns=[]):
         features_to_drop = [
-            'MSZoning_C (all)',
+            'PoolQC',
+        ]
+
+        X.drop(features_to_drop, axis=1, inplace=True)
+
+        return X
+
+
+class FeatureDropper2(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, columns=[]):
+        features_to_drop = [
             'MSSubClass_150',
+            'MSZoning_C (all)',
             'Utilities_NoSeWa',
             'Condition2_RRAe',
             'Condition2_RRAn',
@@ -180,12 +231,16 @@ class FeatureDropper(TransformerMixin):
             'RoofMatl_Roll',
             'Exterior1st_AsphShn',
             'Exterior1st_CBlock',
+            'Exterior1st_Stone',
             'Exterior1st_ImStucc',
             'Exterior2nd_Other',
             'Heating_Floor',
             'Electrical_Mix',
             'MiscFeature_TenC'
         ]
+
+
+
 
         #print(X.columns)
         #X.to_csv('modified_data.csv', index=False)
@@ -194,7 +249,6 @@ class FeatureDropper(TransformerMixin):
         X.drop(features_to_drop, axis=1, inplace=True)
 
         return X
-
 
 class Dummyfier(TransformerMixin):
     def fit(self, X, y=None):
