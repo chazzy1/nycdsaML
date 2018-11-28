@@ -12,7 +12,7 @@ from utils.transform import *
 pd.options.mode.chained_assignment = None
 from sklearn.svm import SVR
 import xgboost as xgb
-
+import lightgbm as lgb
 
 
 def main():
@@ -129,11 +129,25 @@ def main():
                  'reg_alpha': [0.00006]
                  }
 
+    lgb_params = {
+        'objective': ['regression'],
+        'num_leaves': [255],
+        'max_depth': [8],
+        'bagging_seed': [3],
+        #'boosting_type': ['gbdt'],
+        #'min_sum_hessian_in_leaf': [100],
+        #'learning_rate': np.linspace(0.05, 0.1, 2),
+        #'bagging_fraction': np.linspace(0.7, 0.9, 2),
+        #'bagging_freq': np.linspace(30, 50, 3, dtype='int'),
+        #'max_bin': [15, 63],
+    }
+
 
     #rf = get_best_estimator(train_data, y_train_values, estimator=RandomForestRegressor(),
     #                        params=rf_param, n_jobs=4)
     elnet = get_best_estimator(train_data, y_train_values, estimator=ElasticNet(),
                                params=elnet_param, n_jobs=4)
+
     lso = get_best_estimator(train_data, y_train_values, estimator=Lasso(),
                              params=lso_param, n_jobs=4)
 
@@ -144,14 +158,12 @@ def main():
     xgbo = get_best_estimator(train_data, y_train_values, estimator=xgb.XGBRegressor(),
                              params=xgb_param, n_jobs=4)
 
-
-
-
-
+    lbm = get_best_estimator(train_data, y_train_values, estimator=lgb.LGBMRegressor(),
+                             params=lgb_params)
 
 
     model = StackingRegressor(
-        regressors=[elnet, lso, rdg, svr, xgbo],
+        regressors=[elnet, lso, rdg, svr, xgbo, lbm],
         meta_regressor=SVR(kernel='rbf'),
         #meta_regressor=Lasso(alpha=0.0001)
     )
@@ -168,11 +180,30 @@ def main():
                          (0.3 * stacked))
     """
 
+    """
+    11435
     ensembled = np.expm1((0.2 * elnet.predict(predict_data)) +
                          (0.2 * lso.predict(predict_data)) +
                          (0.1 * rdg.predict(predict_data)) +
                          (0.3 * xgbo.predict(predict_data)) +
                          (0.2 * stacked))
+    """
+
+    """
+    11431
+    """
+    ensembled = np.expm1((0.2 * elnet.predict(predict_data)) +
+                         (0.2 * lso.predict(predict_data)) +
+                         (0.1 * rdg.predict(predict_data)) +
+                         (0.2 * xgbo.predict(predict_data)) +
+                         (0.1 * lbm.predict(predict_data)) +
+                         (0.2 * stacked))
+
+
+
+
+
+
 
     df = pd.DataFrame({"price": ensembled})
     q1 = df["price"].quantile(0.0042)

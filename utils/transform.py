@@ -236,7 +236,7 @@ class FeatureDropper2(TransformerMixin):
             'Exterior2nd_Other',
             'Heating_Floor',
             'Electrical_Mix',
-            'MiscFeature_TenC'
+            'MiscFeature_TenC',
         ]
 
 
